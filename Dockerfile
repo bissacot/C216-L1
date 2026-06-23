@@ -1,11 +1,11 @@
-# Imagem base leve do Python 3
 FROM python:3.11-slim
 
-# Define o diretório de trabalho dentro do contêiner
 WORKDIR /app
 
-# Copia o script do sistema de gerenciamento de alunos para o contêiner
-COPY sistema_alunos.py .
+COPY requirements.txt .
 
-# Comando padrão ao iniciar o contêiner: executa o sistema de forma interativa
-CMD ["python", "sistema_alunos.py"]
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
