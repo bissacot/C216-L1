@@ -1,0 +1,9 @@
+"filename", "language", "Python", "Markdown", "pip requirements", "Docker", "YAML", "comment", "blank", "total"
+"c:\Users\GabrielBissacotFragu\OneDrive - Instituto Nacional de Telecomunicações\Documents\GitHub\C216-L1\Dockerfile", "Docker", 0, 0, 0, 6, 0, 0, 5, 11
+"c:\Users\GabrielBissacotFragu\OneDrive - Instituto Nacional de Telecomunicações\Documents\GitHub\C216-L1\README.md", "Markdown", 0, 13, 0, 0, 0, 0, 8, 21
+"c:\Users\GabrielBissacotFragu\OneDrive - Instituto Nacional de Telecomunicações\Documents\GitHub\C216-L1\docker-compose.yml", "YAML", 0, 0, 0, 0, 24, 0, 3, 27
+"c:\Users\GabrielBissacotFragu\OneDrive - Instituto Nacional de Telecomunicações\Documents\GitHub\C216-L1\main.py", "Python", 120, 0, 0, 0, 0, 0, 53, 173
+"c:\Users\GabrielBissacotFragu\OneDrive - Instituto Nacional de Telecomunicações\Documents\GitHub\C216-L1\requirements.txt", "pip requirements", 0, 0, 7, 0, 0, 0, 0, 7
+"c:\Users\GabrielBissacotFragu\OneDrive - Instituto Nacional de Telecomunicações\Documents\GitHub\C216-L1\sistema_alunos.py", "Python", 171, 0, 0, 0, 0, 41, 59, 271
+"c:\Users\GabrielBissacotFragu\OneDrive - Instituto Nacional de Telecomunicações\Documents\GitHub\C216-L1\test_main.py", "Python", 59, 0, 0, 0, 0, 0, 25, 84
+"Total", "-", 350, 13, 7, 6, 24, 41, 153, 594

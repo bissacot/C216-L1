@@ -1,0 +1,35 @@
+Date : 2026-06-23 22:45:11
+Directory : c:\Users\GabrielBissacotFragu\OneDrive - Instituto Nacional de Telecomunicações\Documents\GitHub\C216-L1
+Total : 7 files,  400 codes, 41 comments, 153 blanks, all 594 lines
+
+Languages
++------------------+------------+------------+------------+------------+------------+
+| language         | files      | code       | comment    | blank      | total      |
++------------------+------------+------------+------------+------------+------------+
+| Python           |          3 |        350 |         41 |        137 |        528 |
+| YAML             |          1 |         24 |          0 |          3 |         27 |
+| Markdown         |          1 |         13 |          0 |          8 |         21 |
+| pip requirements |          1 |          7 |          0 |          0 |          7 |
+| Docker           |          1 |          6 |          0 |          5 |         11 |
++------------------+------------+------------+------------+------------+------------+
+
+Directories
++-----------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                                                        | files      | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                                                           |          7 |        400 |         41 |        153 |        594 |
++-----------------------------------------------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-----------------------------------------------------------------------------------------------------------------------------+------------------+------------+------------+------------+------------+
+| filename                                                                                                                    | language         | code       | comment    | blank      | total      |
++-----------------------------------------------------------------------------------------------------------------------------+------------------+------------+------------+------------+------------+
+| c:\Users\GabrielBissacotFragu\OneDrive - Instituto Nacional de Telecomunicações\Documents\GitHub\C216-L1\Dockerfile         | Docker           |          6 |          0 |          5 |         11 |
+| c:\Users\GabrielBissacotFragu\OneDrive - Instituto Nacional de Telecomunicações\Documents\GitHub\C216-L1\README.md          | Markdown         |         13 |          0 |          8 |         21 |
+| c:\Users\GabrielBissacotFragu\OneDrive - Instituto Nacional de Telecomunicações\Documents\GitHub\C216-L1\docker-compose.yml | YAML             |         24 |          0 |          3 |         27 |
+| c:\Users\GabrielBissacotFragu\OneDrive - Instituto Nacional de Telecomunicações\Documents\GitHub\C216-L1\main.py            | Python           |        120 |          0 |         53 |        173 |
+| c:\Users\GabrielBissacotFragu\OneDrive - Instituto Nacional de Telecomunicações\Documents\GitHub\C216-L1\requirements.txt   | pip requirements |          7 |          0 |          0 |          7 |
+| c:\Users\GabrielBissacotFragu\OneDrive - Instituto Nacional de Telecomunicações\Documents\GitHub\C216-L1\sistema_alunos.py  | Python           |        171 |         41 |         59 |        271 |
+| c:\Users\GabrielBissacotFragu\OneDrive - Instituto Nacional de Telecomunicações\Documents\GitHub\C216-L1\test_main.py       | Python           |         59 |          0 |         25 |         84 |
+| Total                                                                                                                       |                  |        400 |         41 |        153 |        594 |
++-----------------------------------------------------------------------------------------------------------------------------+------------------+------------+------------+------------+------------+
