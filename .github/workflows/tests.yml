@@ -27,7 +27,7 @@ jobs:
 
       - name: Instalar dependencias
         working-directory: backend
-        run: poetry install
+        run: poetry install --no-root
 
       - name: Executar testes
         working-directory: backend
