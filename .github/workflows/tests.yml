@@ -32,3 +32,30 @@ jobs:
       - name: Executar testes
         working-directory: backend
         run: poetry run pytest tests -v
+
+  lint-and-format:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Instalar Poetry
+        run: pip install poetry
+
+      - name: Instalar dependencias
+        working-directory: backend
+        run: poetry install --no-root
+
+      - name: Verificar formatacao
+        working-directory: backend
+        run: poetry run ruff format --check .
+
+      - name: Executar linter
+        working-directory: backend
+        run: poetry run ruff check .
