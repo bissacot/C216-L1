@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - aulas
-      - pratica-3
+      - pratica-4
   pull_request:
     branches:
       - aulas
