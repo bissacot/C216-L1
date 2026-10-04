@@ -1,26 +1,9 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
+
+from backend.routers.alunos import router as alunos_router
+from backend.routers.geral import router as geral_router
 
 app = FastAPI(title="C216 L1 API")
 
-
-@app.get("/")
-def home():
-    return {"message": "API C216 L1 funcionando!"}
-
-
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-
-@app.get("/saudacao/{nome}")
-def saudacao(nome: str):
-    if not nome.strip():
-        raise HTTPException(status_code=400, detail="Nome inválido")
-
-    return {"message": f"Olá, {nome}!"}
-
-
-@app.get("/dobro/{numero}")
-def dobro(numero: int):
-    return {"resultado": numero * 2}
+app.include_router(geral_router)
+app.include_router(alunos_router)
