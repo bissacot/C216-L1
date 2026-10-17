@@ -1,102 +1,120 @@
-import pytest
-from fastapi.testclient import TestClient
-
-from backend.main import app
-from backend.routers import alunos as alunos_router
-
-
-@pytest.fixture
-def client():
-    alunos_router.alunos.clear()
-    alunos_router.proximo_id = 1
-    return TestClient(app)
-
-
 def test_criar_aluno(client):
-    response = client.post(
+    resposta = client.post(
         "/alunos/",
         json={
             "nome": "Gabriel",
-            "email": "gabriel@email.com",
+            "email": "gabriel@teste.com",
             "curso": "Engenharia da Computação",
         },
     )
 
-    assert response.status_code == 201
-    assert response.json()["id"] == 1
+    assert resposta.status_code == 201
+
+    aluno = resposta.json()
+    assert aluno["id"] == 1
+    assert aluno["nome"] == "Gabriel"
+    assert aluno["email"] == "gabriel@teste.com"
 
 
 def test_buscar_aluno(client):
-    client.post(
+    criacao = client.post(
         "/alunos/",
         json={
-            "nome": "Gabriel",
-            "email": "gabriel@email.com",
-            "curso": "Engenharia da Computação",
+            "nome": "Maria",
+            "email": "maria@teste.com",
+            "curso": "Engenharia de Software",
         },
     )
 
-    response = client.get("/alunos/1")
+    aluno_id = criacao.json()["id"]
 
-    assert response.status_code == 200
-    assert response.json()["nome"] == "Gabriel"
+    resposta = client.get(f"/alunos/{aluno_id}")
+
+    assert resposta.status_code == 200
+    assert resposta.json()["nome"] == "Maria"
 
 
 def test_substituir_aluno(client):
-    client.post(
+    criacao = client.post(
         "/alunos/",
         json={
-            "nome": "Gabriel",
-            "email": "gabriel@email.com",
+            "nome": "Pedro",
+            "email": "pedro@teste.com",
+            "curso": "Computação",
+        },
+    )
+
+    aluno_id = criacao.json()["id"]
+
+    resposta = client.put(
+        f"/alunos/{aluno_id}",
+        json={
+            "nome": "Pedro Silva",
+            "email": "pedro.silva@teste.com",
             "curso": "Engenharia da Computação",
         },
     )
 
-    response = client.put(
-        "/alunos/1",
-        json={
-            "nome": "Gabriel Bissacot",
-            "email": "gabriel@email.com",
-            "curso": "Engenharia de Computação",
-        },
-    )
-
-    assert response.status_code == 200
-    assert response.json()["nome"] == "Gabriel Bissacot"
+    assert resposta.status_code == 200
+    assert resposta.json()["nome"] == "Pedro Silva"
+    assert resposta.json()["curso"] == "Engenharia da Computação"
 
 
 def test_atualizar_aluno(client):
-    client.post(
+    criacao = client.post(
         "/alunos/",
         json={
-            "nome": "Gabriel",
-            "email": "gabriel@email.com",
-            "curso": "Engenharia da Computação",
+            "nome": "Ana",
+            "email": "ana@teste.com",
+            "curso": "Computação",
         },
     )
 
-    response = client.patch(
-        "/alunos/1",
-        json={"curso": "Engenharia de Computação"},
+    aluno_id = criacao.json()["id"]
+
+    resposta = client.patch(
+        f"/alunos/{aluno_id}",
+        json={"curso": "Engenharia da Computação"},
     )
 
-    assert response.status_code == 200
-    assert response.json()["curso"] == "Engenharia de Computação"
+    assert resposta.status_code == 200
+    assert resposta.json()["nome"] == "Ana"
+    assert resposta.json()["curso"] == "Engenharia da Computação"
 
 
 def test_remover_aluno(client):
+    criacao = client.post(
+        "/alunos/",
+        json={
+            "nome": "Carlos",
+            "email": "carlos@teste.com",
+            "curso": "Computação",
+        },
+    )
+
+    aluno_id = criacao.json()["id"]
+
+    resposta = client.delete(f"/alunos/{aluno_id}")
+
+    assert resposta.status_code == 204
+
+    consulta = client.get(f"/alunos/{aluno_id}")
+
+    assert consulta.status_code == 404
+
+
+def test_listar_alunos(client):
     client.post(
         "/alunos/",
         json={
             "nome": "Gabriel",
-            "email": "gabriel@email.com",
-            "curso": "Engenharia da Computação",
+            "email": "gabriel@teste.com",
+            "curso": "Computação",
         },
     )
 
-    response = client.delete("/alunos/1")
+    resposta = client.get("/alunos/")
 
-    assert response.status_code == 204
-
-    response = client.get("/alunos/1")
-    assert response.status_code == 404
+    assert resposta.status_code == 200
+    assert len(resposta.json()) == 1
+    assert resposta.json()[0]["nome"] == "Gabriel"

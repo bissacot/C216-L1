@@ -1,62 +1,59 @@
-from fastapi import APIRouter, HTTPException
+from typing import Annotated
 
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from backend.database.session import get_db
 from backend.schemas.aluno import Aluno, AlunoCreate, AlunoUpdate
+from backend.services import aluno_service
 
 router = APIRouter(prefix="/alunos", tags=["Alunos"])
 
-alunos: dict[int, Aluno] = {}
-proximo_id = 1
+DbSession = Annotated[Session, Depends(get_db)]
 
 
 @router.post("/", response_model=Aluno, status_code=201)
-def criar_aluno(dados: AlunoCreate):
-    global proximo_id
+def criar_aluno(
+    dados: AlunoCreate,
+    db: DbSession,
+):
+    return aluno_service.criar_aluno(db, dados)
 
-    aluno = Aluno(id=proximo_id, **dados.model_dump())
-    alunos[proximo_id] = aluno
-    proximo_id += 1
 
-    return aluno
+@router.get("/", response_model=list[Aluno])
+def listar_alunos(db: DbSession):
+    return aluno_service.listar_alunos(db)
 
 
 @router.get("/{aluno_id}", response_model=Aluno)
-def buscar_aluno(aluno_id: int):
-    aluno = alunos.get(aluno_id)
-
-    if aluno is None:
-        raise HTTPException(status_code=404, detail="Aluno não encontrado")
-
-    return aluno
+def buscar_aluno(
+    aluno_id: int,
+    db: DbSession,
+):
+    return aluno_service.buscar_aluno(db, aluno_id)
 
 
 @router.put("/{aluno_id}", response_model=Aluno)
-def substituir_aluno(aluno_id: int, dados: AlunoCreate):
-    if aluno_id not in alunos:
-        raise HTTPException(status_code=404, detail="Aluno não encontrado")
-
-    aluno = Aluno(id=aluno_id, **dados.model_dump())
-    alunos[aluno_id] = aluno
-
-    return aluno
+def substituir_aluno(
+    aluno_id: int,
+    dados: AlunoCreate,
+    db: DbSession,
+):
+    return aluno_service.substituir_aluno(db, aluno_id, dados)
 
 
 @router.patch("/{aluno_id}", response_model=Aluno)
-def atualizar_aluno(aluno_id: int, dados: AlunoUpdate):
-    aluno = alunos.get(aluno_id)
-
-    if aluno is None:
-        raise HTTPException(status_code=404, detail="Aluno não encontrado")
-
-    dados_atualizados = dados.model_dump(exclude_unset=True)
-    aluno_atualizado = aluno.model_copy(update=dados_atualizados)
-    alunos[aluno_id] = aluno_atualizado
-
-    return aluno_atualizado
+def atualizar_aluno(
+    aluno_id: int,
+    dados: AlunoUpdate,
+    db: DbSession,
+):
+    return aluno_service.atualizar_aluno(db, aluno_id, dados)
 
 
 @router.delete("/{aluno_id}", status_code=204)
-def remover_aluno(aluno_id: int):
-    if aluno_id not in alunos:
-        raise HTTPException(status_code=404, detail="Aluno não encontrado")
-
-    del alunos[aluno_id]
+def remover_aluno(
+    aluno_id: int,
+    db: DbSession,
+):
+    aluno_service.remover_aluno(db, aluno_id)
