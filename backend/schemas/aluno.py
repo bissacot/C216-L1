@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class AlunoCreate(BaseModel):
@@ -15,3 +15,5 @@ class AlunoUpdate(BaseModel):
 
 class Aluno(AlunoCreate):
     id: int
+
+    model_config = ConfigDict(from_attributes=True)

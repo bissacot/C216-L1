@@ -2,7 +2,7 @@ POETRY = poetry
 BACKEND = backend
 DOCKER_COMPOSE = docker compose
 
-.PHONY: help install test build up down logs ps restart
+.PHONY: help install test lint build up down logs ps restart
 
 help:
 	@echo "Comandos disponiveis:"
@@ -20,6 +20,10 @@ install:
 
 test:
 	cd $(BACKEND) && $(POETRY) run pytest
+
+lint:
+	cd $(BACKEND) && $(POETRY) run ruff check
+	cd $(BACKEND) && $(POETRY) run ruff format --check .
 
 build:
 	$(DOCKER_COMPOSE) build
