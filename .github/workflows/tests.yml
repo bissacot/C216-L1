@@ -5,9 +5,11 @@ on:
     branches:
       - aulas
       - pratica-4
+      - pratica-6
   pull_request:
     branches:
       - aulas
+      - pratica-6
 
 jobs:
   tests:
