@@ -93,6 +93,16 @@ textarea:focus-visible {
   outline: 3px solid #729bff;
   outline-offset: 3px;
 }
+h1,
+h2,
+h3,
+p,
+ul,
+ol,
+dl,
+dd {
+  margin: 0;
+}
 .app-shell {
   --rail: 230px;
   min-height: 100svh;
@@ -167,19 +177,6 @@ textarea:focus-visible {
   font-size: 14px;
   font-weight: 500;
 }
-.nav-group a + a {
-  margin-top: 3px;
-}
-.nav-group a:hover,
-.side-bottom button:hover {
-  background: #ffffff0e;
-  color: white;
-}
-.nav-group a.active {
-  background: #304777;
-  color: #fff;
-  box-shadow: inset 3px 0 #8eabff;
-}
 .side-bottom {
   margin: auto 14px 17px;
   padding-top: 12px;
@@ -187,24 +184,6 @@ textarea:focus-visible {
 }
 .side-bottom button {
   font-size: 13px;
-}
-.compact .sidebar .brand > span:last-child,
-.compact .sidebar nav span,
-.compact .sidebar nav p,
-.compact .sidebar .side-bottom span {
-  display: none;
-}
-.compact .sidebar .nav-group {
-  margin-top: 18px;
-}
-.compact .sidebar a:not(.brand),
-.compact .sidebar button {
-  justify-content: center;
-  padding-inline: 8px;
-}
-.compact .sidebar > .brand {
-  padding: 0;
-  justify-content: center;
 }
 .workspace {
   margin-left: var(--rail);
@@ -258,14 +237,6 @@ textarea:focus-visible {
   border-radius: 50%;
   background: #7493d5;
 }
-.top-tools .icon-button {
-  border-left: 1px solid var(--line);
-  border-radius: 0;
-  padding-left: 15px;
-}
-.mobile-toggle.icon-button {
-  display: none;
-}
 .skip {
   position: fixed;
   left: 10px;
@@ -283,16 +254,6 @@ main {
   margin: auto;
   padding: 32px clamp(18px, 3vw, 46px) 48px;
   outline: none;
-}
-h1,
-h2,
-h3,
-p,
-ul,
-ol,
-dl,
-dd {
-  margin: 0;
 }
 h1 {
   font-size: clamp(27px, 2.25vw, 37px);
@@ -346,17 +307,10 @@ h3 {
   font-size: 13px;
   box-shadow: var(--shadow);
 }
-.button:hover:not(:disabled),
-.icon-button:hover {
-  background: var(--soft);
-}
 .button.primary {
   background: #365ed6;
   color: white;
   border-color: #3459c6;
-}
-.button.primary:hover:not(:disabled) {
-  background: #294ebd;
 }
 .button.danger {
   color: var(--red);
@@ -372,12 +326,6 @@ h3 {
 .inline-note a {
   color: var(--accent);
   font-size: 13px;
-}
-.text-button:hover,
-.back:hover,
-.inline-note a:hover,
-.ticket-link:hover {
-  text-decoration: underline;
 }
 .icon-button {
   border-radius: 5px;
@@ -610,12 +558,6 @@ h3 {
   display: grid;
   gap: 11px;
 }
-.bar > div:first-child {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 4px;
-}
 .bar-track {
   background: var(--ring);
   height: 7px;
@@ -665,9 +607,6 @@ h3 {
   flex-wrap: wrap;
   gap: 17px;
   margin-top: 8px;
-}
-.counts a:hover {
-  color: var(--accent);
 }
 .table-scroll {
   overflow-x: auto;
@@ -1020,6 +959,67 @@ tbody tr:last-child td {
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 30px;
+}
+.nav-group a + a {
+  margin-top: 3px;
+}
+.nav-group a.active {
+  background: #304777;
+  color: #fff;
+  box-shadow: inset 3px 0 #8eabff;
+}
+.counts a:hover {
+  color: var(--accent);
+}
+.top-tools .icon-button {
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  padding-left: 15px;
+}
+.mobile-toggle.icon-button {
+  display: none;
+}
+.button:hover:not(:disabled),
+.icon-button:hover {
+  background: var(--soft);
+}
+.button.primary:hover:not(:disabled) {
+  background: #294ebd;
+}
+.text-button:hover,
+.back:hover,
+.inline-note a:hover,
+.ticket-link:hover {
+  text-decoration: underline;
+}
+.bar > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.nav-group a:hover,
+.side-bottom button:hover {
+  background: #ffffff0e;
+  color: white;
+}
+.compact .sidebar nav span,
+.compact .sidebar nav p,
+.compact .sidebar .side-bottom span,
+.compact .sidebar .brand > span:last-child {
+  display: none;
+}
+.compact .sidebar .nav-group {
+  margin-top: 18px;
+}
+.compact .sidebar a:not(.brand),
+.compact .sidebar button {
+  justify-content: center;
+  padding-inline: 8px;
+}
+.compact .sidebar > .brand {
+  padding: 0;
+  justify-content: center;
 }
 @media (max-width: 1150px) {
   .app-shell {

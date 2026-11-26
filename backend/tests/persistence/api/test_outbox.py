@@ -16,7 +16,9 @@ EMAIL = Channel.EMAIL
 
 
 def _database(pg_engine):
-    engine = create_engine(isolated_database(pg_engine))
+    engine = create_engine(
+        isolated_database(pg_engine), connect_args={"options": "-c lock_timeout=2000"}
+    )
     with Session(engine) as db, db.begin():
         ticket = Ticket(
             requester=Requester(name="Demo", email="demo@example.invalid"),
@@ -138,3 +140,26 @@ def test_retry_filters_and_ineligible_states(client, opened, session):
     row.sent_at = row.last_attempt_at
     session.flush()
     assert client.post(url).status_code == 409
+
+
+def test_worker_skips_locked_delivery_and_reserves_next(pg_engine):
+    engine = _database(pg_engine)
+    policy = Policy(3, 10, 1, 60)
+    try:
+        with Session(engine) as db, db.begin():
+            first = db.scalar(select(Notification))
+            first_id = first.id
+            second = Notification(
+                ticket_id=first.ticket_id, channel=EMAIL, recipient="plantao"
+            )
+            db.add(second)
+            db.flush()
+            second_id = second.id
+        with Session(engine) as other_worker, other_worker.begin():
+            other_worker.get(Notification, first_id, with_for_update=True)
+            claim = claim_one(engine, EMAIL, Mode.MOCK, policy)
+            assert claim.id == second_id
+            assert claim_one(engine, EMAIL, Mode.MOCK, policy) is None
+        assert claim_one(engine, EMAIL, Mode.MOCK, policy).id == first_id
+    finally:
+        engine.dispose()

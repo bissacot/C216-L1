@@ -52,3 +52,23 @@ def test_real_http_flow_survives_api_restart(pg_engine, tmp_path):
         assert api.get(path + "/history").json() == history
         assert api.get(path + "/notifications").json() == notices
         assert api.get("/dashboard").json() == dashboard
+
+
+def test_readiness_and_cors_preflight(pg_engine, tmp_path):
+    origin = "http://localhost:15180"
+    with running_api(
+        isolated_database(pg_engine), tmp_path / "cors.log", CORS_ORIGINS=origin
+    ) as api:
+        assert api.get("/ready").json() == {"status": "ok"}
+        headers = {
+            "Origin": origin,
+            "Access-Control-Request-Method": "PATCH",
+            "Access-Control-Request-Headers": "Content-Type, X-Changed-By",
+        }
+        preflight = api.options("/tickets/1/status", headers=headers)
+        assert preflight.status_code == 200
+        assert preflight.headers["access-control-allow-origin"] == origin
+        headers["Origin"] = "http://localhost:15181"
+        denied = api.options("/tickets/1/status", headers=headers)
+        assert denied.status_code == 400
+        assert "access-control-allow-origin" not in denied.headers

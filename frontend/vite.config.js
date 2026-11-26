@@ -26,6 +26,11 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: "jsdom",
       include: ["tests/unit/**/*.test.jsx"],
+      coverage: {
+        provider: "v8",
+        include: ["src/**/*.{js,jsx}"],
+        reporter: ["text", "html", "json-summary"],
+      },
       setupFiles: ["./tests/setup.js"],
     },
   };

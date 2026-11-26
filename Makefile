@@ -15,9 +15,23 @@ api:
 web:
 	$(NPM) --prefix frontend run dev
 
-unit:
+unit: test-api test-web
+
+.PHONY: test-api test-web coverage coverage-api coverage-web
+
+test-api:
 	$(POETRY) -C backend run pytest
+
+test-web:
 	$(NPM) --prefix frontend test
+
+coverage: coverage-api coverage-web
+
+coverage-api:
+	$(POETRY) -C backend run pytest --cov --cov-report=term-missing --cov-report=html:coverage/html --cov-report=json:coverage/coverage.json
+
+coverage-web:
+	$(NPM) --prefix frontend run coverage
 
 browser:
 	$(NPM) --prefix frontend run test:e2e:install
