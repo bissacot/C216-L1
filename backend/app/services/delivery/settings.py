@@ -35,7 +35,7 @@ def number(name, default, kind=float, maximum=86400):
 
 
 def public_url():
-    base = os.getenv("APP_PUBLIC_URL", "http://127.0.0.1:8001").rstrip("/")
+    base = os.getenv("APP_PUBLIC_URL", "http://127.0.0.1:5180").rstrip("/")
     parts = urlsplit(base)
     if (
         parts.scheme not in {"http", "https"}

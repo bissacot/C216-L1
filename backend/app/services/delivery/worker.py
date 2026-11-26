@@ -55,6 +55,7 @@ async def run_channel(channel, mode, policy, stop):
 @asynccontextmanager
 async def lifespan(app):
     load_environment()
+    app.state.channel_modes = dict.fromkeys(Channel, Mode.DISABLED)
     try:
         policy = Policy.load()
     except DeliveryError as exc:
@@ -69,6 +70,7 @@ async def lifespan(app):
         except DeliveryError:
             logger.error("Modo inválido; processador %s desativado.", channel.value)
             continue
+        app.state.channel_modes[channel] = mode
         if mode != Mode.DISABLED:
             workers.append(
                 asyncio.create_task(run_channel(channel, mode, policy, stop))

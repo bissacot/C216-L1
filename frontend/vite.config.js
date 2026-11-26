@@ -1,13 +1,13 @@
+import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
+import { loadEnv } from "vite";
 import { defineConfig } from "vitest/config";
-
-export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  server: { port: 5180, strictPort: true },
-  test: {
-    environment: "jsdom",
-    include: ["tests/unit/**/*.test.jsx"],
-    setupFiles: ["./tests/setup.js"],
-  },
+export default defineConfig(({mode})=>{
+  const env=loadEnv(mode,fileURLToPath(new URL("../",import.meta.url)),"API_");
+  return {
+    plugins:[react(),tailwindcss()],
+    server:{port:5180,strictPort:true,proxy:{"/api":{target:"http://127.0.0.1:"+(process.env.API_PORT || env.API_PORT || "8001"),rewrite:path=>path.replace(/^\/api/,"")}}},
+    test:{environment:"jsdom",include:["tests/unit/**/*.test.jsx"],setupFiles:["./tests/setup.js"]}
+  };
 });

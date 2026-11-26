@@ -1,11 +1,13 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 
 from app.database.session import Database, ReadDatabase
+from app.models.enums import Channel
 from app.repositories import outbox
 from app.schemas.common import Identifier, Page
 from app.schemas.tickets import NotificationQuery, NotificationRead
+from app.services.delivery.settings import Mode
 from app.services.notifications import retry_failed
 
 router = APIRouter(prefix="/notifications", tags=["Notificações"])
@@ -18,6 +20,11 @@ router = APIRouter(prefix="/notifications", tags=["Notificações"])
 )
 def list_notifications(db: ReadDatabase, query: Annotated[NotificationQuery, Query()]):
     return outbox.list_notifications(db, query)
+
+
+@router.get("/channels", summary="Consultar modos públicos dos canais")
+def channel_modes(request: Request) -> dict[Channel, Mode]:
+    return request.app.state.channel_modes
 
 
 @router.post(
