@@ -6,7 +6,9 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from app.routers.catalog import router as catalog_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.health import router as health_router
+from app.routers.notifications import router as notifications_router
 from app.routers.tickets import router as tickets_router
+from app.services.delivery.worker import lifespan
 from app.services.errors import (
     ConfigurationError,
     Conflict,
@@ -15,7 +17,7 @@ from app.services.errors import (
     NotFound,
 )
 
-app = FastAPI(title="HelpDesk Hub", version="0.3.0")
+app = FastAPI(title="HelpDesk Hub", version="0.4.0", lifespan=lifespan)
 app.include_router(health_router)
 errors = {
     404: {"description": "Recurso inexistente"},
@@ -24,6 +26,7 @@ errors = {
 app.include_router(catalog_router, responses=errors)
 app.include_router(tickets_router, responses=errors)
 app.include_router(dashboard_router)
+app.include_router(notifications_router, responses=errors)
 
 
 @app.exception_handler(DomainError)

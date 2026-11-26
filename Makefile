@@ -2,7 +2,7 @@ POETRY ?= poetry
 NPM ?= npm
 COMPOSE ?= docker compose
 
-.PHONY: install api web test unit e2e browser lint build up down ps test-db migrate migration-current seed-demo
+.PHONY: install api web test unit e2e browser lint build up down ps test-db migrate migration-current seed-demo demo demo-down
 
 install:
 	$(POETRY) -C backend install --no-root
@@ -51,6 +51,12 @@ up:
 
 down:
 	$(COMPOSE) down
+
+demo:
+	$(COMPOSE) -f compose.yaml -f compose.demo.yaml --profile demo up -d --build --wait
+
+demo-down:
+	$(COMPOSE) -f compose.yaml -f compose.demo.yaml --profile demo down
 
 ps:
 	$(COMPOSE) ps

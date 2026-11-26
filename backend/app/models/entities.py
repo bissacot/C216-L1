@@ -144,7 +144,27 @@ class Notification(Base):
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     ticket: Mapped[Ticket] = relationship(back_populates="notifications")
 
+    delivery_mode: Mapped[str | None] = mapped_column(String(4))
+    claim_token: Mapped[str | None] = mapped_column(String(32))
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    cycle_attempt: Mapped[int] = mapped_column(server_default="0")
+
+    @property
+    def processing(self) -> bool:
+        return self.claim_token is not None
+
     __table_args__ = (
+        CheckConstraint("delivery_mode IN ('LIVE', 'MOCK')", name="ck_delivery_mode"),
+        CheckConstraint(
+            "cycle_attempt BETWEEN 0 AND attempt_count", name="ck_delivery_cycle"
+        ),
+        CheckConstraint(
+            "(claim_token IS NULL) = (lease_until IS NULL) AND "
+            "(claim_token IS NULL OR status = 'PENDING')",
+            name="ck_delivery_lease",
+        ),
+        Index("ix_delivery_due", "channel", "status", "next_attempt_at", "id"),
         UniqueConstraint(
             "ticket_id", "channel", "recipient", name="uq_notifications_destination"
         ),

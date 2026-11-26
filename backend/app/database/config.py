@@ -5,8 +5,12 @@ from dotenv import load_dotenv
 from sqlalchemy import URL
 
 
-def database_url() -> URL:
+def load_environment() -> None:
     load_dotenv(Path(__file__).resolve().parents[3] / ".env")
+
+
+def database_url() -> URL:
+    load_environment()
     return URL.create(
         "postgresql+psycopg",
         username=os.environ["POSTGRES_USER"],

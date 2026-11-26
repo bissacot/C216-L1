@@ -1,8 +1,8 @@
 # HelpDesk Hub — Central Inteligente de Chamados de TI
 
-Projeto final da disciplina C216 — Sistemas Distribuídos. A proposta é centralizar o registro de solicitações de suporte de TI. Em etapas futuras, a abertura de um chamado poderá disparar notificações por e-mail e Microsoft Teams.
+Projeto final da disciplina C216 — Sistemas Distribuídos. O HelpDesk Hub registra solicitações de suporte de TI e pode avisar a equipe por e-mail e Microsoft Teams quando um chamado é aberto.
 
-A Etapa 3 disponibiliza a API de solicitantes, categorias, chamados e indicadores. A API usa o modelo relacional da revisão `0001_helpdesk`. A abertura de um chamado prepara duas entregas pendentes para a equipe de TI. O envio está previsto para a Etapa 4.
+A Etapa 4 acrescenta o processamento automático das notificações à API de solicitantes, categorias, chamados e indicadores. Os dois canais começam desativados. O perfil de demonstração permite experimentar o fluxo inteiro na máquina local.
 
 ## Executar com Docker no PowerShell
 
@@ -35,6 +35,8 @@ Para parar a aplicação preservando o volume, execute `docker compose down`.
 | `/tickets/{id}` | `GET` consulta, `PUT` substitui os campos operacionais de um chamado ativo e `DELETE` exclui fisicamente um chamado cancelado, incluindo seu histórico e suas notificações. |
 | `/tickets/{id}/status` | `PATCH` aplica uma transição de status. |
 | `/tickets/{id}/history`, `/tickets/{id}/notifications` | `GET` consulta o histórico cronológico ou as entregas daquele chamado. |
+| `/notifications` | `GET` lista entregas por `channel`, `status` e `ticket_id`, com `page` e `page_size`. |
+| `/notifications/{id}/retry` | `POST` aceita uma nova tentativa para uma entrega `FAILED` (202). ID inexistente retorna 404. Entrega pendente, em processamento ou já enviada retorna 409. |
 | `/dashboard` | `GET` retorna totais por status, prioridade e categoria, críticos ativos, média de resolução em segundos, os cinco chamados mais recentes e totais por status de notificação. Em banco vazio, as contagens são zero, as listas são vazias e a média é `null`. |
 
 As listagens de cadastros e chamados retornam `items`, `total`, `page` e `page_size`. A primeira página é 1 e o tamanho padrão é 20, com máximo de 100. O parâmetro `q` busca por nome, e-mail ou departamento nos solicitantes, por nome ou descrição nas categorias e por título ou descrição nos chamados.
@@ -56,7 +58,7 @@ Consultas e atualizações retornam HTTP 200, criações retornam 201 e exclusõ
 Com o Compose ativo, execute o exemplo uma vez em um banco de demonstração vazio. Cada chamada usa os IDs retornados pela anterior.
 
 ```powershell
-$api = 'http://127.0.0.1:8001'
+$api = if ($env:APP_PUBLIC_URL) { $env:APP_PUBLIC_URL } else { 'http://127.0.0.1:8001' }
 $json = 'application/json; charset=utf-8'
 $pessoa = Invoke-RestMethod "$api/requesters" -Method Post -ContentType $json -Body '{"name":"Pessoa Demo","email":"demo@example.org"}'
 $categoria = Invoke-RestMethod "$api/categories" -Method Post -ContentType $json -Body '{"name":"Monitores"}'
@@ -69,6 +71,69 @@ Invoke-RestMethod "$url/status" -Method Patch -ContentType $json -Body '{"status
 Invoke-RestMethod "$url/history"
 Invoke-RestMethod "$api/dashboard"
 ```
+
+## Notificações automáticas
+
+A abertura grava o chamado, o histórico e duas notificações `PENDING` na mesma transação. Após o commit, um processador por canal no ciclo de vida do FastAPI procura entregas no PostgreSQL. Cada processador reserva uma linha com `FOR UPDATE SKIP LOCKED`, registra a tentativa e libera a transação antes de chamar SMTP ou HTTP. A mensagem usa os dados do chamado no momento de cada tentativa e inclui a data original de abertura. A reserva tem prazo, é renovada durante o envio e só o titular pode registrar o resultado. Depois de uma interrupção, o processador recupera o trabalho persistido quando o canal volta a operar.
+
+| Modo por canal | Resultado |
+| --- | --- |
+| `DISABLED` | Preserva a fila. Habilitar o canal também processa as pendências anteriores. |
+| `MOCK` | Registra a simulação com `delivery_mode=MOCK`. Para Teams, `TEAMS_MOCK_URL` opcional permite inspecionar o cartão em um receptor HTTP local. |
+| `LIVE` | Registra `delivery_mode=LIVE` e usa SMTP ou HTTPS. `SENT` indica que o servidor SMTP ou o gatilho do Workflow aceitou a mensagem. |
+
+Consulte `GET /tickets/{id}/notifications` para acompanhar os dois canais. A resposta traz `processing`, `attempt_count`, `last_attempt_at`, `sent_at`, `last_error` e `next_attempt_at`. `delivery_mode` fica nulo até a primeira tentativa e em registros anteriores à migração. O dashboard agrupa por status e inclui as simulações em `SENT`.
+
+Uma falha afeta somente aquela entrega. O chamado permanece aberto e o outro canal segue normalmente. O erro público informa o tipo de falha ou o código HTTP. O intervalo dobra a cada falha, até 24 horas. Ao esgotar o limite, a entrega fica `FAILED` com `next_attempt_at=null`. O reenvio manual abre outro ciclo e preserva a contagem acumulada. SMTP e webhooks não garantem entrega exatamente uma vez. Se o destino aceitar a mensagem e a confirmação se perder, uma nova tentativa poderá duplicá-la.
+
+### Demonstração local no PowerShell
+
+Com o arquivo `.env` criado conforme as instruções acima, execute `make demo`. Sem Make, use `docker compose -f compose.yaml -f compose.demo.yaml --profile demo up -d --build --wait`. O perfil usa o banco do projeto Compose selecionado. Para uma demonstração separada do desenvolvimento, escolha outro projeto e portas livres na sessão do PowerShell **antes** de iniciar:
+
+```powershell
+$env:COMPOSE_PROJECT_NAME = 'helpdesk-demo'
+$env:POSTGRES_PORT = '15433'
+$env:API_PORT = '18001'
+$env:WEB_PORT = '15180'
+$env:MAILPIT_UI_PORT = '18025'
+$env:APP_PUBLIC_URL = 'http://127.0.0.1:18001'
+make demo
+```
+
+Execute o exemplo de abertura de chamado acima na mesma sessão do PowerShell. Abra a interface do Mailpit em `http://127.0.0.1:18025` (porta padrão `8025`) e selecione a mensagem pelo número do chamado para ver o HTML e o texto. O adaptador faz uma entrega SMTP real a `mailpit:1025` na rede do Compose, usando destinatário fictício. O simulador recebe o Adaptive Card por HTTP e guarda o último cartão em memória. Use os comandos abaixo para inspecionar o conteúdo e as tentativas persistidas.
+
+```powershell
+$demo = @('-f','compose.yaml','-f','compose.demo.yaml','--profile','demo')
+docker compose @demo exec -T teams-mock python -c "from urllib.request import urlopen; print(urlopen('http://127.0.0.1:8080/last').read().decode())"
+Invoke-RestMethod "$api/tickets/$($chamado.id)/notifications" | Format-Table channel,status,delivery_mode,attempt_count
+```
+
+Para reproduzir a falha, pare o simulador e abra outro chamado com os mesmos cadastros. O e-mail ficará disponível no Mailpit. Consulte a entrega até que o Teams chegue a `FAILED` com `next_attempt_at` nulo.
+
+```powershell
+docker compose @demo stop teams-mock
+$chamado = Invoke-RestMethod "$api/tickets" -Method Post -ContentType $json -Body ($dados | ConvertTo-Json)
+$consulta = "$api/notifications?channel=TEAMS&ticket_id=$($chamado.id)"
+(Invoke-RestMethod $consulta).items | Format-Table id,status,attempt_count,next_attempt_at
+```
+
+Use o ID da **notificação** com falha para o reenvio:
+
+```powershell
+$idDaNotificacao = (Invoke-RestMethod $consulta).items[0].id
+docker compose @demo start teams-mock
+Invoke-RestMethod "$api/notifications/$idDaNotificacao/retry" -Method Post
+Invoke-RestMethod "$api/notifications?channel=TEAMS&ticket_id=$($chamado.id)"
+docker compose @demo restart api
+```
+
+Consulte a entrega novamente após o reinício. Encerre com `make demo-down` e feche a sessão de demonstração para descartar as variáveis temporárias. O comando preserva o volume do projeto.
+
+### Configuração para um Teams Workflows autorizado
+
+Em um tenant autorizado, crie um Workflow com o gatilho **When a Teams webhook request is received**, configure a ação para publicar o Adaptive Card no chat ou canal escolhido e salve o fluxo. Defina um coproprietário para continuidade operacional. Consulte o administrador quando as políticas do tenant exigirem aprovação para o aplicativo Workflows, a criação do fluxo ou o modo de autenticação. [Documentação do gatilho](https://learn.microsoft.com/en-us/connectors/teams/#when-a-teams-webhook-request-is-received)
+
+O adaptador implementa POST HTTPS para o gatilho configurado com autenticação **Anyone**, cuja URL completa funciona como segredo. Fluxos restritos a usuários do tenant exigem autenticação adicional com token. Use o modo LIVE somente onde o gatilho e a política permitirem esse tipo de chamada. Injete a URL privadamente em `TEAMS_WEBHOOK_URL`, configure `APP_PUBLIC_URL` com a base acessível aos destinatários, selecione `TEAMS_MODE=LIVE` e recrie a API. O cartão contém o link `/tickets/{id}`, que nesta etapa abre o recurso da API. A demonstração local confirma o formato e o transporte do cartão. A publicação em Teams depende da execução do fluxo no tenant. [Configuração oficial do Workflows](https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook)
 
 ## Modelo relacional
 
@@ -100,7 +165,7 @@ O PostgreSQL valida os enums de prioridade (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`)
 
 ## Migração e dados de demonstração
 
-A revisão inicial `0001_helpdesk` cria as cinco tabelas, os quatro enums e os triggers de atualização. Com o Compose em execução, use:
+A revisão inicial `0001_helpdesk` cria as cinco tabelas, os quatro enums e os triggers de atualização. A revisão `0002_delivery` acrescenta o modo da última tentativa, a reserva com prazo de expiração, a contagem por ciclo e o agendamento indexado das próximas tentativas. Com o Compose em execução, use:
 
 ```powershell
 make migrate
@@ -108,7 +173,7 @@ make migration-current
 docker compose exec api alembic check
 ```
 
-O resultado esperado de `make migration-current` é `0001_helpdesk (head)`. Sem Make, use `docker compose exec api alembic upgrade head` e `docker compose exec api alembic current`. Na suíte isolada, `downgrade base` remove as cinco tabelas, seus registros, tipos e triggers. O teste reaplica o upgrade e compara a estrutura com os modelos.
+O resultado esperado de `make migration-current` é `0002_delivery (head)`. Sem Make, use `docker compose exec api alembic upgrade head` e `docker compose exec api alembic current`. Na suíte isolada, `downgrade base` remove as cinco tabelas, seus registros, tipos e triggers. O teste reaplica o upgrade e compara a estrutura com os modelos.
 
 Para popular o banco de desenvolvimento por escolha explícita, execute:
 
@@ -143,7 +208,8 @@ frontend/
   package.json
   package-lock.json
   Dockerfile
-compose.yaml            Serviços web, api e db
+compose.yaml            Serviços web, api, db e Mailpit opcional
+compose.demo.yaml       Configuração de SMTP local e receptor HTTP simulado
 .env.example            Parâmetros de desenvolvimento
 Makefile                Instalação, execução e verificações
 .github/workflows/      CI no GitHub Actions
@@ -161,6 +227,18 @@ O Compose e o Alembic local usam o `.env` da raiz. Os valores de `.env.example` 
 | `POSTGRES_PORT` | Porta publicada do banco e porta usada pelo Alembic no host | `5433` |
 | `API_PORT`, `WEB_PORT` | Portas publicadas pelo Compose para API e interface | `8001`, `5180` |
 | `NOTIFY_EMAIL_RECIPIENT`, `NOTIFY_TEAMS_RECIPIENT` | Aliases lógicos da equipe de TI usados ao abrir um chamado | `suporte-ti` nos dois canais |
+
+| Configuração de entrega | Uso |
+| --- | --- |
+| `EMAIL_MODE`, `TEAMS_MODE` | `DISABLED`, `MOCK` ou `LIVE` de forma independente. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_TO` | Servidor, porta, remetente e destinatário da equipe. |
+| `SMTP_USERNAME`, `SMTP_PASSWORD` | Credenciais opcionais, configuradas em conjunto. |
+| `SMTP_USE_TLS`, `SMTP_USE_SSL` | STARTTLS ou TLS implícito, respectivamente. Ative no máximo um deles. |
+| `SMTP_TIMEOUT`, `TEAMS_TIMEOUT` | Timeout das operações de rede em segundos. Padrão de 10 para ambos. |
+| `TEAMS_WEBHOOK_URL`, `TEAMS_MOCK_URL` | Segredo HTTPS para LIVE e receptor HTTP local opcional para MOCK, respectivamente. |
+| `APP_PUBLIC_URL`, `MAILPIT_UI_PORT` | Base pública para abrir chamados e porta de loopback da caixa de demonstração. |
+| `NOTIFY_MAX_ATTEMPTS`, `NOTIFY_RETRY_SECONDS` | Até 3 tentativas por ciclo e intervalo inicial de 10 segundos por padrão. |
+| `NOTIFY_POLL_SECONDS`, `NOTIFY_LEASE_SECONDS` | Intervalo de consulta e prazo renovável da reserva. Padrões de 1 e 60 segundos. |
 
 ## Desenvolvimento, testes e build
 
@@ -189,7 +267,7 @@ make build
 
 Para desenvolver no host, use dois terminais para `make api` e `make web`. Escolha entre esses servidores e os containers que ocupam as mesmas portas. Para subir somente o banco, execute `docker compose up -d db`. O Playwright inicia e encerra seu próprio Vite em `127.0.0.1:4174`.
 
-Os testes de persistência exigem Docker em execução. O próprio Pytest cria um PostgreSQL 16 em `tmpfs`, publicado em porta aleatória de loopback. A conexão de testes é montada a partir desse container, independentemente do `.env`. Os testes de dados usam transações revertidas. Ao finalizar, a suíte encerra apenas o container que criou. O GitHub Actions usa o mesmo mecanismo.
+Os testes de persistência exigem Docker em execução. O próprio Pytest cria um PostgreSQL 16 em `tmpfs`, publicado em porta aleatória de loopback. A conexão de testes é montada a partir desse container, independentemente do `.env`. Os testes de dados usam transações revertidas. Ao finalizar, a suíte encerra apenas o container que criou. A suíte de entrega sobe um Mailpit descartável e um simulador HTTP em portas aleatórias de loopback. Ela confere a caixa de entrada, o conteúdo do cartão, uma falha HTTP 503, o reenvio e a persistência após reiniciar o Uvicorn. Os canais permanecem desativados nos demais testes, salvo simulação explícita. O GitHub Actions usa o mesmo mecanismo. Com as imagens e dependências já instaladas, os testes executam localmente.
 
 O teste de fluxo HTTP cria um banco próprio nesse PostgreSQL, inicia a API com Uvicorn, percorre a abertura, o atendimento e a resolução, e consulta os dados após reiniciar a API. Os testes de falha verificam o rollback do chamado, do histórico e das notificações.
 

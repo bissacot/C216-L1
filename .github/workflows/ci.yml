@@ -25,8 +25,10 @@ jobs:
       - run: poetry install --no-root
       - run: poetry run ruff check .
       - run: poetry run ruff format --check .
-      - name: Preparar PostgreSQL temporário da suíte de persistência
-        run: docker pull postgres:16-alpine
+      - name: Preparar PostgreSQL e Mailpit da suíte de integração
+        run: |
+          docker pull postgres:16-alpine
+          docker pull axllent/mailpit:v1.27.4
       - run: poetry run pytest
 
   web:

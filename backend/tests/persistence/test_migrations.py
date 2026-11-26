@@ -38,6 +38,30 @@ def test_downgrade_and_recreate_schema(pg_engine, migration_config):
         }
         assert (
             MigrationContext.configure(connection).get_current_revision()
-            == "0001_helpdesk"
+            == "0002_delivery"
         )
         command.check(migration_config)
+
+
+def test_upgrade_preserves_stage_three_deliveries(session, ticket, migration_config):
+    connection = session.connection()
+    migration_config.attributes["connection"] = connection
+    command.downgrade(migration_config, "0001_helpdesk")
+    connection.execute(
+        text("""
+            INSERT INTO notifications (ticket_id, channel, recipient, status,
+                                       attempt_count, last_attempt_at, sent_at)
+            VALUES (:id, 'EMAIL', 'ti', 'PENDING', 0, NULL, NULL),
+                   (:id, 'TEAMS', 'ti', 'SENT', 2, now(), now())
+        """),
+        {"id": ticket.id},
+    )
+    command.upgrade(migration_config, "head")
+    rows = connection.execute(
+        text("""
+            SELECT status, attempt_count, cycle_attempt, delivery_mode, claim_token
+            FROM notifications WHERE ticket_id = :id ORDER BY id
+        """),
+        {"id": ticket.id},
+    ).all()
+    assert rows == [("PENDING", 0, 0, None, None), ("SENT", 2, 0, None, None)]

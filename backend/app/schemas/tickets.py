@@ -4,7 +4,15 @@ from typing import Annotated, Literal
 from pydantic import AwareDatetime, ConfigDict, Field, model_validator
 
 from app.models.enums import Channel, NotificationStatus, Priority, TicketStatus
-from app.schemas.common import Identifier, Input, Name, Output, PageQuery, TextValue
+from app.schemas.common import (
+    Identifier,
+    Input,
+    Name,
+    Output,
+    PageQuery,
+    Pagination,
+    TextValue,
+)
 
 
 class TicketInput(Input):
@@ -106,6 +114,12 @@ class HistoryRead(Output):
     changed_at: datetime
 
 
+class NotificationQuery(Pagination):
+    channel: Channel | None = None
+    status: NotificationStatus | None = None
+    ticket_id: Identifier | None = None
+
+
 class NotificationRead(Output):
     model_config = ConfigDict(
         json_schema_extra={
@@ -117,6 +131,9 @@ class NotificationRead(Output):
                     "status": "PENDING",
                     "recipient": "suporte-ti",
                     "attempt_count": 0,
+                    "delivery_mode": None,
+                    "processing": False,
+                    "next_attempt_at": None,
                     "last_error": None,
                     "created_at": "2026-01-15T12:00:00Z",
                     "last_attempt_at": None,
@@ -130,6 +147,14 @@ class NotificationRead(Output):
     channel: Channel
     status: NotificationStatus
     recipient: str = Field(examples=["suporte-ti"])
+    delivery_mode: Literal["LIVE", "MOCK"] | None = Field(
+        description=(
+            "Modo da última tentativa. MOCK indica simulação. "
+            "Nulo antes da primeira tentativa ou em registros antigos."
+        )
+    )
+    processing: bool
+    next_attempt_at: datetime | None
     attempt_count: int
     last_error: str | None
     created_at: datetime
