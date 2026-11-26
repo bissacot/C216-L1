@@ -1,8 +1,10 @@
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
+from app.database.config import cors_origins
 from app.routers.catalog import router as catalog_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.health import router as health_router
@@ -18,6 +20,12 @@ from app.services.errors import (
 )
 
 app = FastAPI(title="HelpDesk Hub", version="0.4.0", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins(),
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_headers=["Content-Type", "X-Changed-By"],
+)
 app.include_router(health_router)
 errors = {
     404: {"description": "Recurso inexistente"},

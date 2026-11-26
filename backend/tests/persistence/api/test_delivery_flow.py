@@ -78,7 +78,9 @@ def wait_deliveries(api, ticket, email="SENT", teams="SENT"):
         response = api.get(f"/tickets/{ticket}/notifications")
         assert response.status_code == 200
         items = {n["channel"]: n for n in response.json()}
-        if items["EMAIL"]["status"] == email and items["TEAMS"]["status"] == teams:
+        if items["TEAMS"]["status"] == teams and (
+            email is None or items["EMAIL"]["status"] == email
+        ):
             return items
         time.sleep(0.1)
     pytest.fail(f"Estados de entrega inesperados: {items}")
@@ -168,7 +170,9 @@ def test_local_mailpit_and_workflow_recovery(pg_engine, tmp_path, mailpit, workf
         assert api.post(f"/notifications/{delivery['id']}/retry").status_code == 409
         workflow.failing.set()
         third = api.post("/tickets", json=data).json()["id"]
-        waiting = wait_deliveries(api, third, teams="FAILED")
+        # A recuperação do Teams começa assim que sua falha fica visível,
+        # independentemente do tempo de conclusão do SMTP no Windows.
+        waiting = wait_deliveries(api, third, email=None, teams="FAILED")
         assert waiting["TEAMS"]["next_attempt_at"]
         workflow.failing.clear()
         recovered = wait_deliveries(api, third)

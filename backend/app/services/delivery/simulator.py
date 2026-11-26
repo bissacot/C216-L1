@@ -1,7 +1,10 @@
 """Receptor HTTP local para demonstrar o envelope do Teams Workflows."""
 
 import json
+import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from threading import Lock
 
 
 class MockWorkflow(BaseHTTPRequestHandler):
@@ -23,7 +26,17 @@ class MockWorkflow(BaseHTTPRequestHandler):
                 return self.send_error(400)
         except (ValueError, KeyError, IndexError, TypeError):
             return self.send_error(400)
-        self.server.last_card = payload
+        if path := getattr(self.server, "card_path", None):
+            with self.server.card_lock:
+                pending = path.with_suffix(".tmp")
+                try:
+                    pending.write_text(json.dumps(payload), encoding="utf-8")
+                    pending.replace(path)
+                except OSError:
+                    return self.send_error(500)
+                self.server.last_card = payload
+        else:
+            self.server.last_card = payload
         self.send_response(202)
         self.end_headers()
 
@@ -41,4 +54,9 @@ class MockWorkflow(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     with ThreadingHTTPServer(("0.0.0.0", 8080), MockWorkflow) as server:
+        if location := os.getenv("TEAMS_MOCK_CARD_FILE"):
+            server.card_path = Path(location)
+            server.card_lock = Lock()
+            if server.card_path.exists():
+                server.last_card = json.loads(server.card_path.read_bytes())
         server.serve_forever()

@@ -2,11 +2,13 @@
 
 Projeto final da disciplina C216 — Sistemas Distribuídos. O HelpDesk Hub registra solicitações de suporte de TI e pode avisar a equipe por e-mail e Microsoft Teams quando um chamado é aberto.
 
-A Etapa 4 acrescenta o processamento automático das notificações à API de solicitantes, categorias, chamados e indicadores. Os dois canais começam desativados. O perfil de demonstração permite experimentar o fluxo inteiro na máquina local.
+Na Etapa 6, o navegador carrega a interface React pelo Nginx e usa a mesma origem para acessar `/api/*`. O Nginx encaminha essas requisições ao FastAPI em `api:8000` pela rede interna do Compose. A API lê e grava chamados, histórico e notificações no PostgreSQL em `db:5432`. Rotas como `/tickets/1` abrem diretamente e continuam funcionando após recarregar a página. O navegador guarda apenas preferências de tema e menu.
+
+O ambiente padrão contém `web`, `api` e `db`. Os canais de entrega começam desativados. O perfil de demonstração acrescenta uma caixa SMTP local (Mailpit) e um receptor HTTP de Adaptive Cards.
 
 ## Executar com Docker no PowerShell
 
-Use Docker Desktop em modo de containers Linux, com Docker Compose v2 ou superior. Na raiz do repositório:
+Use o Docker Desktop em modo de containers Linux e o Docker Compose com suporte a `up --wait`. Na raiz do repositório:
 
 ```powershell
 if (!(Test-Path .env)) { Copy-Item .env.example .env }
@@ -17,12 +19,12 @@ Invoke-RestMethod http://127.0.0.1:8001/health
 
 | Serviço | Endereço padrão | O que verificar |
 | --- | --- | --- |
-| React | [Página inicial](http://127.0.0.1:5180) | Nome HelpDesk Hub e descrição da central |
+| React | [Página inicial](http://127.0.0.1:5180) | Dashboard com indicadores e acesso a chamados, cadastros e notificações |
 | FastAPI | [GET /health](http://127.0.0.1:8001/health) | HTTP 200 com `{"status":"ok"}`, que indica que a API responde |
 | OpenAPI | [Documentação interativa](http://127.0.0.1:8001/docs) | Endpoints, parâmetros e exemplos de requisições e respostas |
-| PostgreSQL 16 | `127.0.0.1:5433` | Banco `helpdesk` com os valores de exemplo |
+| PostgreSQL 16 | `127.0.0.1:5433` | Banco `helpdesk` inicialmente vazio, com dados persistidos em volume |
 
-O Compose usa o nome de projeto `helpdesk-hub` e o volume `db_data` desse projeto. O banco sinaliza prontidão com `pg_isready`. A API conecta-se a `db:5432` e executa `alembic upgrade head` antes de iniciar o Uvicorn. O Nginx serve os arquivos estáticos gerados pelo Vite.
+O Compose usa o nome de projeto `helpdesk-hub` e o volume `db_data` desse projeto. O banco sinaliza prontidão com `pg_isready`. A API conecta-se a `db:5432` e executa `alembic upgrade head` antes de iniciar o Uvicorn. A API fica pronta quando `GET /ready` consegue consultar o banco. O Compose aguarda essa resposta para iniciar o Nginx. O healthcheck do frontend verifica tanto a página quanto o proxy em `/api/ready`. Uma falha na migração interrompe a inicialização antes do Uvicorn.
 
 Para parar a aplicação preservando o volume, execute `docker compose down`.
 
@@ -58,7 +60,8 @@ Consultas e atualizações retornam HTTP 200, criações retornam 201 e exclusõ
 Com o Compose ativo, execute o exemplo uma vez em um banco de demonstração vazio. Cada chamada usa os IDs retornados pela anterior.
 
 ```powershell
-$api = if ($env:APP_PUBLIC_URL) { $env:APP_PUBLIC_URL } else { 'http://127.0.0.1:8001' }
+$apiPort = if ($env:API_PORT) { $env:API_PORT } else { '8001' }
+$api = "http://127.0.0.1:$apiPort"
 $json = 'application/json; charset=utf-8'
 $pessoa = Invoke-RestMethod "$api/requesters" -Method Post -ContentType $json -Body '{"name":"Pessoa Demo","email":"demo@example.org"}'
 $categoria = Invoke-RestMethod "$api/categories" -Method Post -ContentType $json -Body '{"name":"Monitores"}'
@@ -96,11 +99,11 @@ $env:POSTGRES_PORT = '15433'
 $env:API_PORT = '18001'
 $env:WEB_PORT = '15180'
 $env:MAILPIT_UI_PORT = '18025'
-$env:APP_PUBLIC_URL = 'http://127.0.0.1:18001'
+$env:APP_PUBLIC_URL = 'http://127.0.0.1:15180'
 make demo
 ```
 
-Execute o exemplo de abertura de chamado acima na mesma sessão do PowerShell. Abra a interface do Mailpit em `http://127.0.0.1:18025` (porta padrão `8025`) e selecione a mensagem pelo número do chamado para ver o HTML e o texto. O adaptador faz uma entrega SMTP real a `mailpit:1025` na rede do Compose, usando destinatário fictício. O simulador recebe o Adaptive Card por HTTP e guarda o último cartão em memória. Use os comandos abaixo para inspecionar o conteúdo e as tentativas persistidas.
+Execute o exemplo de abertura de chamado acima na mesma sessão do PowerShell. Abra a interface do Mailpit em `http://127.0.0.1:18025` (porta padrão `8025`) e selecione a mensagem pelo número do chamado para ver o HTML e o texto. O adaptador faz uma entrega SMTP real a `mailpit:1025` na rede do Compose, usando destinatário fictício. O perfil guarda a caixa do Mailpit no volume `mailpit_data` e o último Adaptive Card aceito pelo simulador em `teams_data`. Ambos pertencem ao projeto Compose da demonstração e sobrevivem à recriação dos containers. Use os comandos abaixo para inspecionar o conteúdo e as tentativas persistidas.
 
 ```powershell
 $demo = @('-f','compose.yaml','-f','compose.demo.yaml','--profile','demo')
@@ -127,13 +130,13 @@ Invoke-RestMethod "$api/notifications?channel=TEAMS&ticket_id=$($chamado.id)"
 docker compose @demo restart api
 ```
 
-Consulte a entrega novamente após o reinício. Encerre com `make demo-down` e feche a sessão de demonstração para descartar as variáveis temporárias. O comando preserva o volume do projeto.
+Na central **Notificações**, filtre pelo ID do chamado. A entrega do e-mail deve aparecer como **Enviada** e a do Teams como **Simulação concluída**. Como alternativa ao POST de reenvio do exemplo, religue o simulador, use **Solicitar nova tentativa** na entrega com falha e confirme. **Atualizar** consulta os estados atuais. Consulte a entrega novamente após o reinício. Encerre com `make demo-down` e feche a sessão de demonstração para descartar as variáveis temporárias. O comando preserva os volumes do projeto.
 
 ### Configuração para um Teams Workflows autorizado
 
 Em um tenant autorizado, crie um Workflow com o gatilho **When a Teams webhook request is received**, configure a ação para publicar o Adaptive Card no chat ou canal escolhido e salve o fluxo. Defina um coproprietário para continuidade operacional. Consulte o administrador quando as políticas do tenant exigirem aprovação para o aplicativo Workflows, a criação do fluxo ou o modo de autenticação. [Documentação do gatilho](https://learn.microsoft.com/en-us/connectors/teams/#when-a-teams-webhook-request-is-received)
 
-O adaptador implementa POST HTTPS para o gatilho configurado com autenticação **Anyone**, cuja URL completa funciona como segredo. Fluxos restritos a usuários do tenant exigem autenticação adicional com token. Use o modo LIVE somente onde o gatilho e a política permitirem esse tipo de chamada. Injete a URL privadamente em `TEAMS_WEBHOOK_URL`, configure `APP_PUBLIC_URL` com a base acessível aos destinatários, selecione `TEAMS_MODE=LIVE` e recrie a API. O cartão contém o link `/tickets/{id}`, que nesta etapa abre o recurso da API. A demonstração local confirma o formato e o transporte do cartão. A publicação em Teams depende da execução do fluxo no tenant. [Configuração oficial do Workflows](https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook)
+O adaptador implementa POST HTTPS para o gatilho configurado com autenticação **Anyone**, cuja URL completa funciona como segredo. Fluxos restritos a usuários do tenant exigem autenticação adicional com token. Use o modo LIVE somente onde o gatilho e a política permitirem esse tipo de chamada. Injete a URL privadamente em `TEAMS_WEBHOOK_URL`, configure `APP_PUBLIC_URL` com a base acessível aos destinatários, selecione `TEAMS_MODE=LIVE` e recrie a API. O cartão contém o link `/tickets/{id}` para a página do chamado no frontend. A demonstração local confirma o formato e o transporte do cartão. A publicação em Teams depende da execução do fluxo no tenant. [Configuração oficial do Workflows](https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook)
 
 ## Modelo relacional
 
@@ -202,7 +205,7 @@ backend/
   poetry.lock
   Dockerfile
 frontend/
-  src/                  Página inicial em React, JavaScript e Tailwind CSS
+  src/                  Dashboard, chamados, cadastros e notificações em React
   tests/unit/           Vitest e React Testing Library
   tests/e2e/            Playwright em Chromium desktop e celular emulado
   package.json
@@ -215,6 +218,13 @@ Makefile                Instalação, execução e verificações
 .github/workflows/      CI no GitHub Actions
 ```
 
+## Diagnóstico no PowerShell
+
+- Se o Docker informar que o motor Linux está inacessível, inicie o Docker Desktop e aguarde o estado *Running*. Use `make ps` para conferir quais serviços estão saudáveis.
+- Se a API falhar ao subir ou a interface indicar serviço indisponível, consulte `make logs`, verifique as credenciais do volume selecionado e compare `/health` na API com `/api/ready` na origem do frontend. Após recuperar o serviço, use **Tentar novamente** na página.
+- Em caso de porta ocupada, escolha valores livres para `WEB_PORT`, `API_PORT` e `POSTGRES_PORT` na sessão PowerShell. Para testar com banco vazio, escolha também um novo `COMPOSE_PROJECT_NAME`. O Compose cria um volume para esse projeto.
+- Se `npm ci` falhar com `EPERM` ao substituir um módulo nativo no Windows, encerre o Vite deste projeto antes de executar `make install` novamente.
+
 ## Configuração local
 
 O Compose e o Alembic local usam o `.env` da raiz. Os valores de `.env.example` são fictícios. Use as mesmas credenciais do banco já inicializado ao reutilizar seu volume.
@@ -226,6 +236,7 @@ O Compose e o Alembic local usam o `.env` da raiz. Os valores de `.env.example` 
 | `POSTGRES_HOST` | Host usado pelo Alembic | `127.0.0.1` no host, `db` no Compose |
 | `POSTGRES_PORT` | Porta publicada do banco e porta usada pelo Alembic no host | `5433` |
 | `API_PORT`, `WEB_PORT` | Portas publicadas pelo Compose para API e interface | `8001`, `5180` |
+| `CORS_ORIGINS` | Origens explícitas, separadas por vírgula, para acesso direto à API | Por padrão, HTTP em `127.0.0.1` e `localhost` na porta do frontend |
 | `NOTIFY_EMAIL_RECIPIENT`, `NOTIFY_TEAMS_RECIPIENT` | Aliases lógicos da equipe de TI usados ao abrir um chamado | `suporte-ti` nos dois canais |
 
 | Configuração de entrega | Uso |
@@ -263,9 +274,12 @@ make build
 | `make test` | Agrega os testes de backend, frontend e navegador |
 | `make lint` | Verifica lint e formatação com Ruff e Biome |
 | `make build` | Gera o build do frontend em `frontend/dist/` |
-| `make up`, `make ps`, `make down` | Constrói e inicia a pilha, mostra o estado ou encerra os containers |
+| `make up`, `make ps`, `make logs`, `make down` | Constrói e aguarda a pilha, mostra o estado, consulta as últimas 100 linhas de cada serviço ou encerra os containers |
+| `make demo`, `make demo-down` | Inicia ou encerra a pilha com Mailpit e simulador Teams no projeto Compose selecionado |
 
-Para desenvolver no host, use dois terminais para `make api` e `make web`. Escolha entre esses servidores e os containers que ocupam as mesmas portas. Para subir somente o banco, execute `docker compose up -d db`. O Playwright inicia e encerra seu próprio Vite em `127.0.0.1:4174`.
+Para desenvolver no host, use dois terminais para `make api` e `make web`. Escolha entre esses servidores e os containers que ocupam as mesmas portas. Para subir somente o banco, execute `docker compose up -d db`. O Vite encaminha `/api` à API no host. Se usar uma porta de API diferente de 8001 no desenvolvimento nativo, exporte `$env:API_PORT` com a mesma porta nas duas sessões. No desenvolvimento local, aplique as migrações com `poetry -C backend run alembic upgrade head` antes de abrir a interface.
+
+`make e2e` cria um projeto Compose exclusivo em portas locais aleatórias e aguarda os healthchecks. O Chromium usa a imagem de produção do frontend e a API real. A suíte cria registros próprios, percorre o ciclo do chamado, recarrega páginas internas e verifica os dados persistidos. Ao terminar, encerra seu projeto temporário e remove seu volume de testes. Para inspecionar os dados após os testes, defina `E2E_BASE_URL` com a URL de um **ambiente isolado de validação** já iniciado. Nesse modo a suíte usa esse ambiente e deixa seus registros disponíveis.
 
 Os testes de persistência exigem Docker em execução. O próprio Pytest cria um PostgreSQL 16 em `tmpfs`, publicado em porta aleatória de loopback. A conexão de testes é montada a partir desse container, independentemente do `.env`. Os testes de dados usam transações revertidas. Ao finalizar, a suíte encerra apenas o container que criou. A suíte de entrega sobe um Mailpit descartável e um simulador HTTP em portas aleatórias de loopback. Ela confere a caixa de entrada, o conteúdo do cartão, uma falha HTTP 503, o reenvio e a persistência após reiniciar o Uvicorn. Os canais permanecem desativados nos demais testes, salvo simulação explícita. O GitHub Actions usa o mesmo mecanismo. Com as imagens e dependências já instaladas, os testes executam localmente.
 

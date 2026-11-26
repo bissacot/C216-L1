@@ -1,15 +1,16 @@
 POETRY ?= poetry
 NPM ?= npm
 COMPOSE ?= docker compose
+API_PORT ?= 8001
 
-.PHONY: install api web test unit e2e browser lint build up down ps test-db migrate migration-current seed-demo demo demo-down
+.PHONY: install api web test unit e2e browser lint build up down ps logs test-db migrate migration-current seed-demo demo demo-down
 
 install:
 	$(POETRY) -C backend install --no-root
 	$(NPM) --prefix frontend ci
 
 api:
-	$(POETRY) -C backend run uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload
+	$(POETRY) -C backend run uvicorn app.main:app --host 127.0.0.1 --port $(API_PORT) --reload
 
 web:
 	$(NPM) --prefix frontend run dev
@@ -60,3 +61,6 @@ demo-down:
 
 ps:
 	$(COMPOSE) ps
+
+logs:
+	$(COMPOSE) logs --tail=100

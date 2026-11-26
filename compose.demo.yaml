@@ -1,4 +1,8 @@
 services:
+  mailpit:
+    command: ["--database", "/data/mailpit.db"]
+    volumes:
+      - mailpit_data:/data
   api:
     environment:
       EMAIL_MODE: LIVE
@@ -22,8 +26,16 @@ services:
     profiles: ["demo"]
     build: ./backend
     command: ["python", "-m", "app.services.delivery.simulator"]
+    environment:
+      TEAMS_MOCK_CARD_FILE: /data/last-card.json
+    volumes:
+      - teams_data:/data
     healthcheck:
       test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8080/last', timeout=2).close()"]
       interval: 3s
       timeout: 3s
       retries: 20
+
+volumes:
+  mailpit_data:
+  teams_data:
