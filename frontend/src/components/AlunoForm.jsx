@@ -3,7 +3,7 @@ import { normalizeAluno, validateAluno } from "../validation.js";
 
 const emptyAluno = { nome: "", email: "", curso: "" };
 
-export default function AlunoForm({ aluno, onSave, onCancel }) {
+export default function AlunoForm({ aluno, onSave, onCancel, disabled }) {
   const [values, setValues] = useState(aluno ?? emptyAluno);
   const [errors, setErrors] = useState({});
   const formRef = useRef(null);
@@ -12,7 +12,7 @@ export default function AlunoForm({ aluno, onSave, onCancel }) {
     if (aluno) formRef.current.elements.namedItem("nome").focus();
   }, [aluno]);
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
     const nextErrors = validateAluno(values);
     setErrors(nextErrors);
@@ -21,8 +21,8 @@ export default function AlunoForm({ aluno, onSave, onCancel }) {
       formRef.current.elements.namedItem(firstError).focus();
       return;
     }
-    onSave(normalizeAluno(values));
-    if (!aluno) setValues(emptyAluno);
+    const saved = await onSave(normalizeAluno(values));
+    if (saved && !aluno) setValues(emptyAluno);
   }
 
   return (
@@ -63,6 +63,7 @@ export default function AlunoForm({ aluno, onSave, onCancel }) {
               name={field}
               type={type}
               required
+              disabled={disabled}
               autoComplete={
                 field === "nome" ? "name" : field === "email" ? "email" : "off"
               }
@@ -91,6 +92,7 @@ export default function AlunoForm({ aluno, onSave, onCancel }) {
         </p>
         <button
           type="submit"
+          disabled={disabled}
           className="w-full rounded-lg bg-[#213f35] px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-900"
         >
           {aluno ? "Salvar alterações" : "Cadastrar aluno"}{" "}
@@ -99,6 +101,7 @@ export default function AlunoForm({ aluno, onSave, onCancel }) {
         {aluno && (
           <button
             type="button"
+            disabled={disabled}
             onClick={onCancel}
             className="w-full rounded-lg border border-stone-300 px-4 py-3 text-sm font-medium hover:bg-stone-100"
           >

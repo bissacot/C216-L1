@@ -16,7 +16,7 @@
     "check": "biome check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "node tests/e2e/run.js",
     "test:e2e:install": "playwright install chromium"
   },
   "dependencies": {

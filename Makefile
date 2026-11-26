@@ -4,12 +4,14 @@ DOCKER_COMPOSE = docker compose
 NPM = npm
 FRONTEND = frontend
 
-.PHONY: help install test lint build up down logs ps restart
+.PHONY: help install test test-all lint build up down logs ps restart
 
 help:
 	@echo "Comandos disponiveis:"
 	@echo "  make install - Instala as dependencias do projeto"
 	@echo "  make test    - Executa os testes"
+	@echo "  make test-all - Executa Pytest, Vitest e E2E com PostgreSQL isolado"
+	@echo "  make lint    - Verifica lint e formatacao com Ruff"
 	@echo "  make build   - Constroi as imagens Docker"
 	@echo "  make up      - Sobe os containers"
 	@echo "  make down    - Para e remove os containers"
@@ -29,10 +31,12 @@ help:
 	@echo "  make frontend-preview - Serve o build de producao"
 
 install:
-	cd $(BACKEND) && $(POETRY) install
+	cd $(BACKEND) && $(POETRY) install --no-root
 
 test:
 	cd $(BACKEND) && $(POETRY) run pytest
+
+test-all: test frontend-test frontend-e2e
 
 lint:
 	cd $(BACKEND) && $(POETRY) run ruff check

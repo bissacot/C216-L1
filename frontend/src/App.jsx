@@ -1,7 +1,14 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import AlunoForm from "./components/AlunoForm.jsx";
 import AlunoList from "./components/AlunoList.jsx";
 import DeleteDialog from "./components/DeleteDialog.jsx";
+import {
+  buscarAluno,
+  criarAluno,
+  excluirAluno,
+  listarAlunos,
+  substituirAluno,
+} from "./services/alunos.js";
 
 export default function App() {
   const [alunos, setAlunos] = useState([]);
@@ -9,7 +16,10 @@ export default function App() {
   const [deleting, setDeleting] = useState(null);
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
-  const nextId = useRef(1);
+  const [listState, setListState] = useState("loading");
+  const [activity, setActivity] = useState("");
+  const [error, setError] = useState("");
+  const disabled = listState !== "ready" || Boolean(activity);
   const formArea = useRef(null);
   const filtered = alunos.filter((aluno) =>
     [aluno.nome, aluno.email, aluno.curso].some((value) =>
@@ -19,36 +29,91 @@ export default function App() {
     ),
   );
 
-  function saveAluno(values) {
-    if (editing) {
+  const loadAlunos = useCallback(async (signal) => {
+    setListState("loading");
+    setError("");
+    try {
+      const records = await listarAlunos(signal);
+      if (signal?.aborted) return;
+      setAlunos(records);
+      setListState("ready");
+    } catch (err) {
+      if (signal?.aborted) return;
+      setError(err.message);
+      setListState("error");
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadAlunos(controller.signal);
+    return () => controller.abort();
+  }, [loadAlunos]);
+
+  async function saveAluno(values) {
+    setActivity("Salvando cadastro…");
+    setMessage("");
+    setError("");
+    try {
+      const saved = editing
+        ? await substituirAluno(editing.id, values)
+        : await criarAluno(values);
       setAlunos((current) =>
-        current.map((aluno) =>
-          aluno.id === editing.id ? { ...values, id: aluno.id } : aluno,
-        ),
+        editing
+          ? current.map((aluno) => (aluno.id === saved.id ? saved : aluno))
+          : [...current, saved],
       );
       setEditing(null);
-      setMessage("Aluno atualizado com sucesso.");
-    } else {
-      const id = nextId.current++;
-      setAlunos((current) => [...current, { ...values, id }]);
-      setMessage("Aluno cadastrado com sucesso.");
+      setMessage(
+        editing
+          ? "Aluno atualizado com sucesso."
+          : "Aluno cadastrado com sucesso.",
+      );
+      return true;
+    } catch (err) {
+      setError(err.message);
+      return false;
+    } finally {
+      setActivity("");
     }
   }
 
-  function editAluno(aluno) {
-    setEditing(aluno);
+  async function editAluno(aluno) {
+    setActivity("Consultando aluno…");
     setMessage("");
-    formArea.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    setError("");
+    try {
+      setEditing(await buscarAluno(aluno.id));
+      formArea.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActivity("");
+    }
   }
 
-  function deleteAluno() {
-    setAlunos((current) => current.filter((aluno) => aluno.id !== deleting.id));
-    if (editing?.id === deleting.id) setEditing(null);
-    setDeleting(null);
-    setMessage("Aluno excluído com sucesso.");
-    document.getElementById("search").focus();
+  async function deleteAluno() {
+    setActivity("Excluindo aluno…");
+    setError("");
+    setMessage("");
+    try {
+      await excluirAluno(deleting.id);
+      setAlunos((current) =>
+        current.filter((aluno) => aluno.id !== deleting.id),
+      );
+      if (editing?.id === deleting.id) setEditing(null);
+      setDeleting(null);
+      setMessage("Aluno excluído com sucesso.");
+      document.getElementById("search").focus();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActivity("");
+    }
   }
 
+  const status =
+    listState === "loading" ? "Carregando alunos…" : activity || message;
   return (
     <>
       <a
@@ -94,7 +159,9 @@ export default function App() {
           </div>
           <div className="flex items-center gap-4 rounded-xl border border-stone-200 bg-white px-5 py-4">
             <span className="text-3xl font-semibold tabular-nums">
-              {alunos.length.toString().padStart(2, "0")}
+              {listState === "ready"
+                ? alunos.length.toString().padStart(2, "0")
+                : "—"}
             </span>
             <span className="text-xs leading-5 text-stone-500">
               Alunos
@@ -107,20 +174,32 @@ export default function App() {
           role="status"
           aria-live="polite"
           className={
-            message
+            status
               ? "mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
               : "sr-only"
           }
         >
-          {message}
+          {status}
         </div>
+        {error && !deleting && (
+          <p
+            role="alert"
+            className="mb-6 rounded-lg bg-red-50 px-4 py-3 text-red-800"
+          >
+            {error}
+          </p>
+        )}
         <div className="grid items-start gap-7 lg:grid-cols-[360px_minmax(0,1fr)]">
           <div ref={formArea} className="scroll-mt-6">
             <AlunoForm
               key={editing?.id ?? "new"}
               aluno={editing}
               onSave={saveAluno}
-              onCancel={() => setEditing(null)}
+              disabled={disabled}
+              onCancel={() => {
+                setEditing(null);
+                setError("");
+              }}
             />
           </div>
           <section
@@ -136,7 +215,8 @@ export default function App() {
                   Sua turma
                 </h2>
                 <span className="rounded-full bg-[#eef2e6] px-3 py-1 text-xs font-medium text-emerald-900">
-                  {alunos.length} {alunos.length === 1 ? "aluno" : "alunos"}
+                  {listState === "ready" &&
+                    `${alunos.length} ${alunos.length === 1 ? "aluno" : "alunos"}`}
                 </span>
               </div>
               <label htmlFor="search" className="sr-only">
@@ -151,37 +231,50 @@ export default function App() {
                 className="mt-5 w-full rounded-lg border border-stone-200 bg-stone-50 px-4 py-3 text-sm focus:outline-emerald-700"
               />
             </div>
-            <AlunoList
-              alunos={filtered}
-              hasAlunos={alunos.length > 0}
-              onEdit={editAluno}
-              onDelete={setDeleting}
-            />
-            <div className="border-t border-stone-100 px-5 py-4 text-xs text-stone-500 sm:px-7">
-              {filtered.length} de {alunos.length} cadastros nesta sessão
-            </div>
+            {listState === "error" && (
+              <button
+                type="button"
+                className="m-5 underline"
+                onClick={() => loadAlunos()}
+              >
+                Tentar carregar novamente
+              </button>
+            )}
+            {listState === "ready" && (
+              <>
+                <AlunoList
+                  alunos={filtered}
+                  hasAlunos={alunos.length > 0}
+                  onEdit={editAluno}
+                  disabled={disabled}
+                  onDelete={(aluno) => {
+                    setError("");
+                    setMessage("");
+                    setDeleting(aluno);
+                  }}
+                />
+                <div className="border-t border-stone-100 px-5 py-4 text-xs text-stone-500 sm:px-7">
+                  {filtered.length} de {alunos.length} cadastros
+                </div>
+              </>
+            )}
           </section>
         </div>
-        <aside className="mt-7 flex items-start gap-3 rounded-xl border border-[#dde4ce] bg-[#edf1e4] p-4 text-sm text-[#4a5a3b]">
-          <span aria-hidden="true">ⓘ</span>
-          <p>
-            <strong className="font-semibold">
-              Uma sessão, muitas possibilidades.
-            </strong>{" "}
-            Os cadastros ficam disponíveis enquanto esta página estiver aberta.
-            Ao recarregar, a lista será reiniciada.
-          </p>
-        </aside>
         <footer className="mt-10 flex flex-wrap justify-between gap-3 border-t border-stone-200 pt-5 text-xs text-stone-500">
           <span>campus. · Feito para organizar, pensado para pessoas.</span>
-          <span>C216 L1 · Prática 6</span>
+          <span>C216 L1 · Prática 7</span>
         </footer>
       </main>
       {deleting && (
         <DeleteDialog
           aluno={deleting}
           onConfirm={deleteAluno}
-          onCancel={() => setDeleting(null)}
+          pending={Boolean(activity)}
+          error={error}
+          onCancel={() => {
+            setDeleting(null);
+            setError("");
+          }}
         />
       )}
     </>

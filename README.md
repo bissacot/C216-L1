@@ -1,283 +1,126 @@
-# C216-L1 — Sistemas Distribuídos
+# C216 L1 — Prática 7 · Integração full stack
 
-Repositório das atividades práticas da disciplina **C216 L1 — Sistemas Distribuídos**.
+O sistema de gestão de alunos integra a interface React da Prática 6 à API FastAPI e ao PostgreSQL da Prática 5. A cada abertura da página, a interface consulta a turma cadastrada. O usuário pode filtrar por nome, e-mail ou curso, editar um aluno e confirmar ou cancelar sua exclusão.
 
-## Tecnologias utilizadas
+## Inicialização com Docker Compose
 
-- Python 3.11
-- FastAPI
-- Poetry
-- Docker e Docker Compose
-- PostgreSQL 16
-- SQLAlchemy
-- Alembic
-- Pytest
-- Ruff
-- JavaScript, React e React DOM
-- Vite e Tailwind CSS
-- npm, Biome, Vitest, React Testing Library e Playwright
+Use o Docker com containers Linux e o Compose v2.24.4 ou superior (necessário para o ambiente de testes). Na raiz do projeto, execute no PowerShell:
 
-## Estrutura do projeto
-
-```text
-C216-L1/
-├── frontend/             # Interface React independente (Prática 6)
-├── backend/
-│   ├── alembic/          # Migrações do banco
-│   ├── database/         # Configuração e sessões SQLAlchemy
-│   ├── models/           # Modelos ORM
-│   ├── repositories/     # Operações com o banco
-│   ├── routers/          # Endpoints da API
-│   ├── schemas/          # Validação com Pydantic
-│   ├── services/         # Regras de negócio
-│   ├── tests/            # Testes automatizados
-│   ├── Dockerfile
-│   ├── alembic.ini
-│   └── pyproject.toml
-├── docker-compose.yml
-├── .env.example
-├── Makefile
-└── README.md
-```
-
-## Funcionalidades
-
-A aplicação disponibiliza uma API REST desenvolvida com FastAPI.
-
-A API de alunos permite:
-
-- Cadastrar alunos.
-- Listar alunos cadastrados.
-- Consultar um aluno pelo ID.
-- Atualizar os dados de um aluno.
-- Remover alunos.
-
-Os dados são armazenados em um banco PostgreSQL por meio do SQLAlchemy.
-
-## Configuração do ambiente
-
-É necessário ter Python, Poetry e Docker instalados.
-
-Clone o repositório e acesse a pasta do projeto.
-
-Crie um arquivo `.env` na raiz, utilizando `.env.example` como referência.
-
-Para o ambiente Docker local configurado na prática, utilize:
-
-```dotenv
-DATABASE_URL_DOCKER=postgresql+psycopg://postgres:postgres@db:5432/c216_db
-```
-
-As credenciais apresentadas são apenas para desenvolvimento local. O arquivo `.env` não deve ser enviado ao GitHub.
-
-## Executando com Docker
-
-Na raiz do projeto, execute:
-
-```bash
-docker compose up -d --build
-```
-
-Para verificar os containers:
-
-```bash
+```powershell
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+docker compose up -d --build --wait
 docker compose ps
 ```
 
-Para acompanhar os logs:
+| Serviço | Endereço local |
+| --- | --- |
+| Interface React | [Abrir gestão de alunos](http://localhost:5173) |
+| API FastAPI | [Consultar saúde da API](http://localhost:8000/health) |
+| Documentação interativa | [Abrir Swagger](http://localhost:8000/docs) |
+| PostgreSQL | `localhost:5432` |
 
-```bash
-docker compose logs -f backend
+Para parar os serviços, execute `make down`. Para iniciá-los novamente com as mesmas imagens e dados, execute `make up`.
+
+## Arquitetura
+
+O Nginx serve os arquivos gerados pelo Vite. No navegador, o React usa `fetch` para acessar a API. O FastAPI valida o corpo com Pydantic, encaminha a operação ao serviço de alunos e acessa o PostgreSQL 16 pelo repositório SQLAlchemy. Dentro da rede do Compose, a API encontra o banco pelo nome `db`.
+
+| Caminho | Responsabilidade |
+| --- | --- |
+| `frontend/src/App.jsx` e `components/` | Carregamento inicial com `useEffect`, estado da interface com `useState`, formulário, lista, filtro e diálogo |
+| `frontend/src/services/` | Cliente HTTP, mensagens de erro e operações de alunos |
+| `frontend/src/validation.js` | Campos obrigatórios, formato de e-mail, limites e normalização |
+| `frontend/tests/{unit,integration,e2e}/` | Vitest, React Testing Library e Playwright |
+| `backend/routers/` e `schemas/` | Endpoints FastAPI e contratos Pydantic |
+| `backend/services/` e `repositories/` | Regras de negócio e operações com o banco |
+| `backend/database/`, `models/` e `alembic/` | Sessões, modelo de aluno e histórico de migrações |
+| `backend/tests/` | Testes unitários e de integração com Pytest |
+| `docker-compose.yml` e `docker-compose.e2e.yml` | Serviços da aplicação e configuração isolada do E2E |
+| `.github/workflows/` | Verificações do backend e do frontend |
+
+O frontend usa JavaScript, React, Vite e Tailwind CSS. O backend usa Python (3.11 na imagem), Poetry, FastAPI, SQLAlchemy, psycopg e Alembic. Ruff e Biome verificam o código.
+
+### Contrato dos alunos
+
+| Método | Caminho | Uso |
+| --- | --- | --- |
+| GET | `/alunos/` | Carregar a lista ao abrir ou recarregar a página |
+| POST | `/alunos/` | Cadastrar com nome, e-mail e curso, recebendo o ID atribuído pelo banco |
+| GET | `/alunos/{id}` | Consultar os dados atuais antes da edição |
+| PUT | `/alunos/{id}` | Salvar o formulário completo de edição |
+| PATCH | `/alunos/{id}` | Atualizar apenas os campos enviados pela camada de serviços |
+| DELETE | `/alunos/{id}` | Excluir após confirmação e receber HTTP 204 |
+
+Os endpoints gerais das práticas anteriores continuam disponíveis em `/`, `/health`, `/saudacao/{nome}` e `/dobro/{numero}`. O formulário valida os dados antes do envio e conserva os valores digitados quando a gravação falha. Uma falha na listagem oferece nova tentativa. A lista e as mensagens de sucesso refletem a resposta da API.
+
+## Variáveis de ambiente
+
+O Compose lê o `.env` da raiz. O repositório inclui valores de exemplo para desenvolvimento em [.env.example](.env.example). Guarde credenciais reais no `.env` local, ignorado pelo Git.
+
+| Variável | Finalidade |
+| --- | --- |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Usuário, senha e banco utilizados na primeira inicialização de um volume vazio |
+| `DATABASE_URL_DOCKER` | URL SQLAlchemy usada pelo Compose para definir `DATABASE_URL` no backend. Use o host `db` e as credenciais correspondentes ao volume |
+| `DATABASE_URL` | URL lida diretamente pela API e pelo Alembic. Ao executar o backend no host, use `localhost` para o PostgreSQL publicado |
+| `VITE_API_URL` | Endereço público da API, acessível pelo navegador. O padrão local é `http://localhost:8000` |
+| `CORS_ORIGINS` | Origens completas autorizadas, separadas por vírgula. Os padrões incluem `localhost` e `127.0.0.1` nas portas 5173 (interface) e 4173 (preview) |
+
+Para acessar a aplicação a partir de outra máquina, informe em `VITE_API_URL` o endereço da API visto por essa máquina e inclua a origem da interface em `CORS_ORIGINS`. Rode novamente `docker compose up -d --build --wait`, pois o Vite incorpora a URL ao JavaScript durante o build. O middleware CORS permite GET, POST, PUT, PATCH e DELETE com JSON e atende às requisições de preflight.
+
+## Migrações e persistência
+
+O Compose aguarda o healthcheck do PostgreSQL. A API executa `alembic upgrade head` antes de iniciar o Uvicorn. O frontend aguarda o healthcheck da API. Consulte a revisão aplicada ou reaplique as migrações pendentes com:
+
+```powershell
+docker compose exec backend python -m alembic -c backend/alembic.ini current
+docker compose exec backend python -m alembic -c backend/alembic.ini upgrade head
 ```
 
-A API ficará disponível em:
+O volume nomeado `postgres_data` preserva os registros ao recriar os containers no mesmo projeto Compose. Em instalações anteriores, mantenha o nome do projeto e as credenciais já utilizadas pelo volume. `docker compose down` preserva o volume. A opção `-v` o remove.
 
-- http://localhost:8000
-- http://localhost:8000/docs — Documentação Swagger
+## Desenvolvimento e testes
 
-## Migrações do banco de dados
+Para usar os alvos locais, instale GNU Make, Python compatível com o projeto (3.10 ou 3.11), Poetry, Node.js 24 e npm. Mantenha o Docker em execução para o E2E. Na raiz do repositório:
 
-O projeto utiliza Alembic para controlar as alterações na estrutura do banco.
-
-Após iniciar o PostgreSQL, execute:
-
-```bash
-docker compose exec backend sh -c "cd /app/backend && alembic upgrade head"
+```powershell
+make install
+make frontend-install
+make frontend-e2e-install
+make test-all
 ```
 
-Esse comando aplica as migrações pendentes, criando as tabelas necessárias.
+O comando `make test-all` executa Pytest, Vitest e Playwright. Em Windows, se necessário, use `make test-all NPM=npm.cmd`. Em Linux, para instalar também as bibliotecas do Chromium, execute `npx playwright install --with-deps chromium` em `frontend/`.
 
-Para consultar a versão atual:
+| Comando Make | O que executa |
+| --- | --- |
+| `make help` | Lista os comandos |
+| `make build`, `make up`, `make down` | Constrói as imagens, inicia ou encerra os containers |
+| `make ps`, `make logs`, `make restart` | Mostra o estado, acompanha logs ou reinicia os serviços |
+| `make install`, `make test`, `make lint` | Instala as dependências com Poetry, executa Pytest ou verifica lint e formatação com Ruff |
+| `make frontend-install`, `make frontend-dev` | Instala as dependências com npm ou inicia o Vite com recarga automática |
+| `make frontend-test` | Executa os testes unitários e de integração com Vitest |
+| `make frontend-e2e-install`, `make frontend-e2e` | Instala Chromium ou executa o E2E com a pilha completa |
+| `make frontend-lint`, `make frontend-format-check`, `make frontend-check` | Verifica lint, formatação ou o conjunto de regras do Biome |
+| `make frontend-format` | Aplica a formatação do frontend |
+| `make frontend-build`, `make frontend-preview` | Gera o build em `frontend/dist/` ou serve o resultado localmente |
+| `make test-all` | Executa todas as suítes de testes |
 
-```bash
-docker compose exec backend sh -c "cd /app/backend && alembic current"
-```
+Para desenvolver com recarga automática, deixe a porta 5173 livre (`docker compose stop frontend` se a interface em container estiver ativa), execute `docker compose up -d --build backend` e então `make frontend-dev`. O Vite lê `VITE_API_URL` do ambiente ou do `.env` da raiz.
 
-As migrações existentes estão armazenadas em `backend/alembic/versions/`.
+### Isolamento dos testes
 
-## Endpoints de alunos
+- **Pytest** usa uma sessão SQLite em memória por teste de CRUD. Também verifica as rotas gerais e o CORS.
+- **Vitest e React Testing Library** usam respostas HTTP simuladas para verificar formulários, serviços, carregamento, sucesso, erros HTTP, validação e indisponibilidade da API.
+- **Playwright** inicia um projeto Compose com nome exclusivo, constrói o frontend, aplica as migrações e usa PostgreSQL 16 em `tmpfs`. As portas de loopback 15173 e 18000 precisam estar livres. O banco de teste só fica acessível na rede do projeto temporário. Os cenários usam cadastros exclusivos e exercitam CRUD, filtros, cancelamento, foco e recarga em Chromium desktop e emulação de celular. Ao terminar, o executor encerra o projeto de testes.
 
-| Método | Endpoint | Descrição |
-|---|---|---|
-| POST | `/alunos/` | Cadastrar aluno |
-| GET | `/alunos/` | Listar alunos |
-| GET | `/alunos/{aluno_id}` | Consultar aluno |
-| PUT | `/alunos/{aluno_id}` | Atualizar aluno |
-| PATCH | `/alunos/{aluno_id}` | Atualizar parcialmente |
-| DELETE | `/alunos/{aluno_id}` | Remover aluno |
+O relatório HTML fica em `frontend/playwright-report/`, com traces e capturas de falhas em `frontend/test-results/`. Abra o relatório com `npx playwright show-report` em `frontend/`.
 
-Exemplo de cadastro:
+### Conferência manual
 
-```json
-{
-  "nome": "Gabriel",
-  "email": "gabriel@teste.com",
-  "curso": "Engenharia da Computação"
-}
-```
-
-## Testes automatizados
-
-Os testes foram desenvolvidos com Pytest e utilizam um banco SQLite em memória, isolado do PostgreSQL de desenvolvimento.
-
-Para instalar as dependências:
-
-```bash
-cd backend
-poetry install --no-root
-```
-
-Para executar os testes, na raiz do projeto:
-
-```bash
-make test
-```
-
-Para verificar a qualidade e a formatação do código:
-
-```bash
-make lint
-```
-
-Na implementação da Prática 5, foram validados **16 testes automatizados**.
-
-## Persistência de dados
-
-O PostgreSQL utiliza um volume Docker para preservar os registros.
-
-Foi validado que os dados cadastrados permanecem disponíveis após reiniciar ou recriar o container da API.
-
-**Atenção:** o comando `docker compose down -v` remove os volumes e pode apagar os dados armazenados.
+1. Abra a [gestão de alunos](http://localhost:5173), cadastre um aluno de teste e busque pelo e-mail.
+2. Recarregue a página. Localize o cadastro, altere o curso e confira o novo valor após outra recarga.
+3. Abra a confirmação de exclusão, cancele e verifique que o aluno segue na lista. Confirme a exclusão do cadastro de teste e recarregue para verificar a remoção.
 
 ## Integração contínua
 
-O repositório possui um workflow do GitHub Actions para executar testes e verificações de qualidade de código.
-
-## Prática 5 — Persistência
-
-Nesta prática foram implementados:
-
-- Integração entre FastAPI e PostgreSQL.
-- Mapeamento objeto-relacional com SQLAlchemy.
-- Migrações de banco com Alembic.
-- Separação das responsabilidades em routers, services e repositories.
-- Operações CRUD persistentes.
-- Testes automatizados com isolamento do banco.
-- Configuração de conexão por variáveis de ambiente.
-- Execução da API e do PostgreSQL com Docker Compose.
-
-## Prática 6 — Frontend moderno
-
-O frontend permite cadastrar, listar, buscar, editar e excluir alunos com os campos **nome**, **e-mail** e **curso**, acompanhando o domínio da API existente. A interface é responsiva, apresenta mensagens de sucesso, erros associados aos campos e um diálogo de confirmação antes de excluir. É possível cancelar edições e exclusões; o diálogo também fecha com Escape.
-
-Os dados existem somente no estado local do React. A lista começa vazia e é reiniciada ao recarregar ou fechar a página. Não há consumo de API, localStorage, sessionStorage ou banco de dados no frontend. As abas funcionam como sessões independentes.
-
-### Tecnologias e estrutura
-
-O projeto usa JavaScript (sem TypeScript), React/React DOM, Vite e Tailwind CSS com o plugin oficial para Vite. O npm gerencia as dependências; `frontend/package-lock.json` fixa a instalação reproduzível por `npm ci`. Biome verifica lint, formatação e organização de imports, com regras recomendadas habilitadas.
-
-```text
-frontend/
-├── src/
-│   ├── components/
-│   │   ├── AlunoForm.jsx       # Cadastro, edição e erros dos campos
-│   │   ├── AlunoList.jsx       # Listagem, estado vazio e ações
-│   │   └── DeleteDialog.jsx    # Confirmação de exclusão
-│   ├── App.jsx                # Estado em memória e coordenação dos fluxos
-│   ├── validation.js          # Validação e normalização por funções puras
-│   ├── index.css              # Tailwind e estilos globais
-│   └── main.jsx               # Entrada React
-├── tests/
-│   ├── unit/                  # Validações e componentes isolados
-│   ├── integration/           # Formulário, lista e operações em conjunto
-│   ├── e2e/                   # Fluxos no navegador real
-│   └── setup.js               # jest-dom, limpeza e adaptações do jsdom
-├── biome.json
-├── vite.config.js             # Vite e Vitest; E2E separado do Vitest
-├── playwright.config.js       # Servidor automático e projetos desktop/celular
-├── index.html
-├── package.json
-└── package-lock.json
-```
-
-Os campos são obrigatórios e não aceitam apenas espaços. O e-mail deve ter um formato válido. Os limites acompanham o modelo do backend: nome e curso até 100 caracteres e e-mail até 150. O frontend remove espaços externos e normaliza o e-mail para minúsculas. Não há regra de unicidade de e-mail, assim como no modelo atual da API.
-
-### Executar o frontend
-
-Pré-requisitos: **Node.js 24 LTS**, npm e, opcionalmente, GNU Make. O backend, o PostgreSQL e o Docker não precisam estar em execução para usar esta interface.
-
-Na raiz do repositório:
-
-```bash
-make frontend-install
-make frontend-dev
-```
-
-Abra o endereço informado pelo Vite, normalmente `http://localhost:5173`. Encerre com Ctrl+C.
-
-Sem Make, inclusive no PowerShell:
-
-```bash
-cd frontend
-npm ci
-npm run dev
-```
-
-Se a política de execução do PowerShell bloquear `npm.ps1`, use `npm.cmd` nos mesmos comandos. Os alvos Make também aceitam `NPM=npm.cmd`.
-
-### Qualidade, testes e build
-
-| Na raiz do projeto | Dentro de `frontend/` | Finalidade |
-|---|---|---|
-| `make frontend-test` | `npm test` | Testes unitários e de integração com Vitest |
-| `make frontend-e2e-install` | `npm run test:e2e:install` | Instalar Chromium, necessário uma vez por versão do Playwright |
-| `make frontend-e2e` | `npm run test:e2e` | E2E desktop e celular com Playwright |
-| `make frontend-lint` | `npm run lint` | Lint com Biome |
-| `make frontend-format` | `npm run format` | Aplicar formatação |
-| `make frontend-format-check` | `npm run format:check` | Verificar formatação sem modificar arquivos |
-| `make frontend-check` | `npm run check` | Lint, formatação e organização de imports |
-| `make frontend-build` | `npm run build` | Gerar build de produção em `frontend/dist/` |
-| `make frontend-preview` | `npm run preview` | Servir o build para conferência local |
-
-O Vitest utiliza jsdom, React Testing Library, jest-dom e user-event. Os testes cobrem validação de obrigatoriedade, e-mail, limites e normalização; formulário e listagem; cadastro, busca, edição, cancelamento e exclusão; e reinicialização do estado. Para desenvolvimento interativo, use `npm run test:watch`.
-
-O Playwright inicia e encerra seu próprio servidor Vite na porta 5173, que deve estar livre. Os mesmos fluxos são executados em Chromium desktop e em viewport de celular, incluindo validações, confirmação, Escape, busca, recarga sem persistência e ausência de requisições de API. Não é necessário iniciar o servidor manualmente. Em Linux, a instalação completa do navegador e das dependências do sistema pode ser feita com `npx playwright install --with-deps chromium`.
-
-O relatório E2E fica em `frontend/playwright-report/`; capturas e traces de falhas ficam em `frontend/test-results/`. Para abrir o relatório, execute `npx playwright show-report` em `frontend/`. Esses arquivos gerados, `node_modules/` e `dist/` são ignorados pelo Git.
-
-Os comandos existentes do backend foram mantidos: `make test` executa Pytest e `make lint` executa Ruff. Seus testes continuam isolados do PostgreSQL, utilizando SQLite em memória.
-
-### Integração contínua
-
-O workflow `.github/workflows/frontend.yml` executa automaticamente em pushes para `pratica-6` e PRs destinados a `aulas` ou `pratica-6`, além de permitir disparo manual. Ele contém dois jobs:
-
-1. `lint`: instala dependências com `npm ci` e verifica o lint com Biome.
-2. `tests-and-format`: depende de `lint` por `needs`, verifica formatação e imports, executa Vitest e Playwright e gera o build de produção. Em caso de falha, publica os relatórios E2E como artefatos do workflow.
-
-O workflow existente de backend também passa a executar nos pushes e PRs de `pratica-6`, preservando suas verificações de Pytest e Ruff. A execução remota dos workflows só ocorre após envio ao GitHub.
-
-### Limitações e Prática 7
-
-Esta prática entrega a interface e seus fluxos locais. Não há autenticação, sincronização de abas nem persistência dos cadastros no frontend. O backend e o PostgreSQL preservam seu funcionamento independente.
-
-**A integração com o backend e a containerização do frontend ficam para a Prática 7**, incluindo o fluxo E2E integrado à API e ao banco. Nenhum container de frontend foi adicionado nesta etapa.
+Os workflows de backend e frontend executam nos pushes de `pratica-7` e nos PRs destinados a `pratica-6`, `pratica-7` ou `aulas`, preservando os gatilhos anteriores. O backend roda Pytest e Ruff. O frontend executa Biome, Vitest, Playwright com o Compose isolado e o build Vite. O workflow do frontend publica os artefatos de diagnóstico em caso de falha.
