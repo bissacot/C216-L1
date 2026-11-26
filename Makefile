@@ -2,7 +2,7 @@ POETRY ?= poetry
 NPM ?= npm
 COMPOSE ?= docker compose
 
-.PHONY: install api web test unit e2e browser lint build up down ps
+.PHONY: install api web test unit e2e browser lint build up down ps test-db migrate migration-current seed-demo
 
 install:
 	$(POETRY) -C backend install --no-root
@@ -25,6 +25,18 @@ e2e:
 	$(NPM) --prefix frontend run test:e2e
 
 test: unit e2e
+
+test-db:
+	$(POETRY) -C backend run pytest tests/persistence
+
+migrate:
+	$(COMPOSE) exec -T api alembic upgrade head
+
+migration-current:
+	$(COMPOSE) exec -T api alembic current
+
+seed-demo:
+	$(COMPOSE) exec -T api python -m app.database.seed
 
 lint:
 	$(POETRY) -C backend run ruff check .
