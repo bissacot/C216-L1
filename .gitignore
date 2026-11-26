@@ -1,0 +1,31 @@
+# Configuração local e credenciais
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python / Poetry
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# Node / builds / ferramentas de teste
+node_modules/
+.npm-cache/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.log
+
+# Editores e sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

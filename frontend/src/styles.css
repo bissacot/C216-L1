@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+:root {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color: #eef8f4;
+  background: #103b37;
+}
+
+.shell {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  padding-inline: clamp(1.5rem, 6vw, 6rem);
+  background: radial-gradient(ellipse at 87% 32%, #1e514a, transparent 55%);
+}
+
+.welcome {
+  flex: 1;
+  width: min(100%, 72rem);
+  margin: auto;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  align-content: center;
+  align-items: center;
+  gap: 4rem;
+  padding-block: 5rem;
+}
+
+h1 {
+  font-size: clamp(3.75rem, 8vw, 8rem);
+  font-weight: 650;
+  letter-spacing: -0.065em;
+  line-height: 1.02;
+}
+
+h1 span {
+  color: #c5f295;
+}
+
+.intro p {
+  max-width: 25em;
+  margin-top: 1.4rem;
+  font-size: clamp(1.15rem, 2vw, 1.6rem);
+  color: #d6e8e2;
+}
+
+.tickets {
+  position: relative;
+  width: min(100%, 20rem);
+  aspect-ratio: 1.55;
+  justify-self: center;
+}
+
+.ticket {
+  position: absolute;
+  inset: 8% 5%;
+  border-radius: 0.9rem;
+  mask:
+    radial-gradient(circle at 0 50%, transparent 0.7rem, #000 0.75rem) left /
+    51% 100% no-repeat,
+    radial-gradient(circle at 100% 50%, transparent 0.7rem, #000 0.75rem) right
+    / 51% 100% no-repeat;
+}
+
+.ticket-back {
+  background: #78b3a5;
+  transform: rotate(9deg) translate(4%, -8%);
+}
+
+.ticket-front {
+  background: #c5f295;
+  transform: rotate(-10deg) translate(-3%, 6%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.65rem;
+  padding-left: 10%;
+}
+
+.ticket-front::after {
+  content: "";
+  position: absolute;
+  inset: 0 22% 0 auto;
+  border-left: 2px dashed #60835b;
+}
+
+.ticket-front i {
+  width: 44%;
+  height: 0.38rem;
+  background: #50704d;
+  border-radius: 0.2rem;
+}
+
+.ticket-front i:first-child {
+  width: 22%;
+  height: 0.75rem;
+  margin-bottom: 0.55rem;
+  background: #244a37;
+}
+
+.ticket-front i:last-child {
+  width: 32%;
+}
+
+footer {
+  border-color: #50706a;
+  color: #d6e8e2;
+}
+
+@media (max-width: 42rem) {
+  .welcome {
+    grid-template-columns: 1fr;
+    gap: 3.5rem;
+  }
+
+  .tickets {
+    width: min(80%, 15rem);
+    justify-self: start;
+  }
+}
