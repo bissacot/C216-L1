@@ -16,7 +16,7 @@ it("exibe erros, foca o primeiro campo e impede envio inválido", async () => {
 
 it("envia dados normalizados e limpa o cadastro", async () => {
   const user = userEvent.setup();
-  const onSave = vi.fn();
+  const onSave = vi.fn().mockResolvedValue(true);
   render(<AlunoForm onSave={onSave} />);
   await user.type(screen.getByLabelText(/Nome completo/), " Ana ");
   await user.type(screen.getByLabelText(/E-mail/), "ANA@EXEMPLO.COM");

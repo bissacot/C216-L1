@@ -1,0 +1,21 @@
+# O executor usa um projeto Compose exclusivo para cada suíte.
+services:
+  db:
+    environment:
+      POSTGRES_USER: e2e
+      POSTGRES_PASSWORD: e2e
+      POSTGRES_DB: alunos_e2e
+    ports: !reset []
+    volumes: !override
+      - type: tmpfs
+        target: /var/lib/postgresql/data
+  backend:
+    environment:
+      DATABASE_URL: postgresql+psycopg://e2e:e2e@db:5432/alunos_e2e
+      CORS_ORIGINS: http://127.0.0.1:15173
+    ports: !override ["127.0.0.1:18000:8000"]
+  frontend:
+    build:
+      args:
+        VITE_API_URL: http://127.0.0.1:18000
+    ports: !override ["127.0.0.1:15173:80"]

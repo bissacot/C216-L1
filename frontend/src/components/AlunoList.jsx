@@ -1,4 +1,10 @@
-export default function AlunoList({ alunos, hasAlunos, onEdit, onDelete }) {
+export default function AlunoList({
+  alunos,
+  hasAlunos,
+  onEdit,
+  onDelete,
+  disabled,
+}) {
   if (!alunos.length)
     return (
       <div className="flex min-h-72 flex-col items-center justify-center px-6 text-center">
@@ -49,6 +55,7 @@ export default function AlunoList({ alunos, hasAlunos, onEdit, onDelete }) {
             <button
               type="button"
               onClick={() => onEdit(aluno)}
+              disabled={disabled}
               aria-label={`Editar ${aluno.nome}`}
               className="rounded-lg border border-stone-200 px-3 py-2 text-xs font-medium hover:bg-stone-100"
             >
@@ -57,6 +64,7 @@ export default function AlunoList({ alunos, hasAlunos, onEdit, onDelete }) {
             <button
               type="button"
               onClick={() => onDelete(aluno)}
+              disabled={disabled}
               aria-label={`Excluir ${aluno.nome}`}
               className="rounded-lg px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-50"
             >

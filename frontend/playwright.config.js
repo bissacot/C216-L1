@@ -8,7 +8,7 @@ export default defineConfig({
   workers: process.env.CI ? 2 : undefined,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL: "http://127.0.0.1:15173",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
@@ -19,9 +19,4 @@ export default defineConfig({
       use: { ...devices["Pixel 7"], defaultBrowserType: "chromium" },
     },
   ],
-  webServer: {
-    command: "npm run dev -- --host 127.0.0.1 --port 5173 --strictPort",
-    url: "http://127.0.0.1:5173",
-    reuseExistingServer: false,
-  },
 });

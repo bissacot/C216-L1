@@ -2,9 +2,9 @@ name: Frontend
 
 on:
   push:
-    branches: [pratica-6]
+    branches: [pratica-6, pratica-7]
   pull_request:
-    branches: [aulas, pratica-6]
+    branches: [aulas, pratica-6, pratica-7]
   workflow_dispatch:
 
 permissions:

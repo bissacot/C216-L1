@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 
 test.beforeEach(async ({ page }) => {
@@ -5,37 +6,56 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function cadastrar(page) {
-  await page.getByLabel("Nome completo").fill("Ana Souza");
-  await page.getByLabel("E-mail", { exact: false }).fill("ana@exemplo.com");
+  const suffix = randomUUID();
+  const nome = `Ana Souza ${suffix}`;
+  await page.getByLabel("Nome completo").fill(nome);
+  await page
+    .getByLabel("E-mail", { exact: false })
+    .fill(`ana-${suffix}@exemplo.com`);
   await page
     .getByLabel("Curso", { exact: false })
     .fill("Engenharia de Software");
   await page.getByRole("button", { name: /Cadastrar aluno/ }).click();
+  await expect(
+    page.getByRole("heading", { name: nome, exact: true }),
+  ).toBeVisible();
+  return nome;
 }
 
 test("cadastra, edita e exclui com confirmação", async ({ page }) => {
-  await cadastrar(page);
+  const nome = await cadastrar(page);
+  const novoNome = nome.replace("Souza", "Silva");
   await expect(page.getByRole("status")).toHaveText(
     "Aluno cadastrado com sucesso.",
   );
-  await page.getByRole("button", { name: "Editar Ana Souza" }).click();
-  await page.getByLabel("Nome completo").fill("Ana Silva");
+  await page.getByRole("button", { name: `Editar ${nome}` }).click();
+  await expect(page.getByLabel("Nome completo")).toHaveValue(nome);
+  await page.getByLabel("Nome completo").fill(novoNome);
   await page.getByRole("button", { name: /Salvar alterações/ }).click();
   await expect(page.getByRole("status")).toHaveText(
     "Aluno atualizado com sucesso.",
   );
-  await page.getByRole("button", { name: "Excluir Ana Silva" }).click();
+  await page.reload();
+  await page.getByRole("button", { name: `Excluir ${novoNome}` }).click();
   await page.getByRole("button", { name: "Cancelar", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Ana Silva" })).toBeVisible();
-  await page.getByRole("button", { name: "Excluir Ana Silva" }).click();
+  await expect(page.getByRole("heading", { name: novoNome })).toBeVisible();
+  await page.getByRole("button", { name: `Excluir ${novoNome}` }).click();
   await page.getByRole("button", { name: "Confirmar exclusão" }).click();
   await expect(page.getByRole("status")).toHaveText(
     "Aluno excluído com sucesso.",
   );
-  await expect(page.getByText("Sua próxima turma começa aqui")).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: /Cadastrar aluno/ }),
+  ).toBeEnabled();
+  await expect(page.getByRole("heading", { name: novoNome })).toHaveCount(0);
 });
 
 test("bloqueia formulário vazio e e-mail inválido", async ({ page }) => {
+  const writes = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST") writes.push(request.url());
+  });
   await page.getByRole("button", { name: /Cadastrar aluno/ }).click();
   await expect(page.getByRole("alert")).toHaveCount(3);
   await page.getByLabel("Nome completo").fill("Ana");
@@ -43,27 +63,30 @@ test("bloqueia formulário vazio e e-mail inválido", async ({ page }) => {
   await page.getByLabel("E-mail", { exact: false }).fill("invalido");
   await page.getByRole("button", { name: /Cadastrar aluno/ }).click();
   await expect(page.getByRole("alert")).toHaveText("Informe um e-mail válido.");
-  await expect(
-    page.getByRole("list", { name: "Alunos cadastrados" }),
-  ).toHaveCount(0);
+  expect(writes).toEqual([]);
 });
 
-test("busca e reinicia os dados ao recarregar, sem persistência ou chamadas de API", async ({
+test("busca e recupera o cadastro do PostgreSQL ao recarregar", async ({
   page,
 }) => {
-  const apiRequests = [];
-  page.on("request", (request) => {
-    if (["fetch", "xhr"].includes(request.resourceType()))
-      apiRequests.push(request.url());
-  });
-  await cadastrar(page);
+  const nome = await cadastrar(page);
   await page.getByRole("searchbox").fill("inexistente");
   await expect(page.getByText("Nenhum resultado encontrado")).toBeVisible();
   await page.getByRole("searchbox").fill("ANA");
-  await expect(page.getByRole("heading", { name: "Ana Souza" })).toBeVisible();
-  await page.reload();
-  await expect(page.getByText("Sua próxima turma começa aqui")).toBeVisible();
-  expect(apiRequests).toEqual([]);
+  await expect(page.getByRole("heading", { name: nome })).toBeVisible();
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      (res) =>
+        new URL(res.url()).pathname === "/alunos/" &&
+        res.request().method() === "GET",
+    ),
+    page.reload(),
+  ]);
+  expect(response.status()).toBe(200);
+  expect(await response.json()).toContainEqual(
+    expect.objectContaining({ nome }),
+  );
+  await expect(page.getByRole("heading", { name: nome })).toBeVisible();
   expect(
     await page.evaluate(() => ({
       local: localStorage.length,
@@ -75,12 +98,13 @@ test("busca e reinicia os dados ao recarregar, sem persistência ou chamadas de 
 test("cancela edição e fecha confirmação com Escape mantendo o foco", async ({
   page,
 }) => {
-  await cadastrar(page);
-  await page.getByRole("button", { name: "Editar Ana Souza" }).click();
+  const nome = await cadastrar(page);
+  await page.getByRole("button", { name: `Editar ${nome}` }).click();
+  await expect(page.getByLabel("Nome completo")).toHaveValue(nome);
   await page.getByLabel("Nome completo").fill("Descartar");
   await page.getByRole("button", { name: "Cancelar edição" }).click();
-  await expect(page.getByRole("heading", { name: "Ana Souza" })).toBeVisible();
-  const excluir = page.getByRole("button", { name: "Excluir Ana Souza" });
+  await expect(page.getByRole("heading", { name: nome })).toBeVisible();
+  const excluir = page.getByRole("button", { name: `Excluir ${nome}` });
   await excluir.click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.keyboard.press("Escape");
